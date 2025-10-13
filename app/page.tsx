@@ -1,5 +1,5 @@
 'use client'
-import { Bus, MapPin, Search, Navigation, Clock, Users, ArrowRight, Route as RouteIcon, Check, ChevronsUpDown, X, Zap, Target, Heart, Star } from 'lucide-react';
+import { Bus, MapPin, Search, Navigation, Clock, Users, ArrowRight, Route as RouteIcon, ChevronsUpDown, X, Zap, Target } from 'lucide-react';
 import { getAllRoutes, BusRoute } from '@/lib/bus-routes';
 import { FuzzySearch } from '@/lib/fuzzy-search';
 import { RoutePlanner, RoutePlan } from '@/lib/route-planner';
@@ -7,23 +7,14 @@ import toast, { Toaster } from 'react-hot-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils'
 import { useState, useMemo } from 'react';
-import { favoritesManager } from '@/lib/favorites';
 import ThemeToggle from '@/components/ThemeToggle';
-import BusStatus from '@/components/BusStatus';
-import RouteAnalytics from '@/components/RouteAnalytics';
 
 export default function Home() {
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentLocation] = useState('');
   
-  // Combobox states
-  const [fromOpen, setFromOpen] = useState(false);
-  const [toOpen, setToOpen] = useState(false);
   const [fromValue, setFromValue] = useState('');
   const [toValue, setToValue] = useState('');
   
@@ -63,10 +54,9 @@ export default function Home() {
 
   // Get routes from current location
   const routesFromLocation = useMemo(() => {
-    if (!fromValue && !currentLocation) return [];
-    const location = fromValue || currentLocation;
+    if (!fromValue) return [];
     return routes.filter(route => 
-      route.stops.some(stop => stop.name === location)
+      route.stops.some(stop => stop.name === fromValue)
     );
   }, [fromValue, routes]);
 
@@ -886,11 +876,6 @@ export default function Home() {
                     placeholder="Search locations..."
                     className="w-full pl-10 pr-4 py-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     onChange={(e) => {
-                      const searchTerm = e.target.value;
-                      // Filter allStops based on search term
-                      const filtered = allStops.filter(stop => 
-                        stop.toLowerCase().includes(searchTerm.toLowerCase())
-                      );
                       // You can add search functionality here if needed
                     }}
                   />

@@ -14,18 +14,15 @@ import {
 } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Progress } from './ui/progress';
-import { Separator } from './ui/separator';
 import { BusRoute, busRoutes } from '../lib/bus-routes';
 import { RoutePlanner, RoutePlan, RouteOption } from '../lib/route-planner';
 import { useState, useMemo } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import { cn } from '../lib/utils';
-import { FuzzySearch } from '@/lib/fuzzy-search';
 
 export default function BusTracker() {
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentLocation] = useState('');
   const [from, setFrom] = useState<string>('');
   const [to, setTo] = useState<string>('');
   const [routePlan, setRoutePlan] = useState<RoutePlan | null>(null);
@@ -142,7 +139,7 @@ export default function BusTracker() {
                   confidencePercentage >= 80 ? 'bg-green-500' :
                   confidencePercentage >= 60 ? 'bg-yellow-500' : 'bg-red-500'
                 }`}
-                style={{ width: `${confidencePercentage}%` }} // eslint-disable-next-line react/style-prop-object
+                style={{ width: `${confidencePercentage}%` }}
               ></div>
             </div>
           </div>

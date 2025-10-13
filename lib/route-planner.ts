@@ -303,7 +303,7 @@ export class RoutePlanner {
 
     // Round 2: Routes with 2 transfers (if needed)
     if (options.length < 5) {
-      const multiTransferRoutes = this.findMultiTransferRoutes(fromStop, toStop);
+      const multiTransferRoutes = this.findMultiTransferRoutes();
       options.push(...multiTransferRoutes);
     }
 
@@ -488,7 +488,7 @@ export class RoutePlanner {
   }
 
   // Find multi-transfer routes (2+ transfers)
-  private findMultiTransferRoutes(fromStop: BusStop, toStop: BusStop): RouteOption[] {
+  private findMultiTransferRoutes(): RouteOption[] {
     const options: RouteOption[] = [];
     
     // This is a simplified implementation for multi-transfer routes
@@ -683,12 +683,12 @@ export class RoutePlanner {
   private calculateTravelTime(fromStop: BusStop, toStop: BusStop): number {
     // Base time: 2.5 minutes per stop + distance factor
     const baseTime = 2.5;
-    const distance = this.calculateDistance(fromStop, toStop);
+    const distance = this.calculateDistance();
     return Math.round(baseTime + (distance * 1.5)); // 1.5 min per km
   }
 
   // Calculate distance between two stops (simplified)
-  private calculateDistance(fromStop: BusStop, toStop: BusStop): number {
+  private calculateDistance(): number {
     // Simplified distance calculation - in real app, use GPS coordinates
     return 0.8; // Average 0.8 km between stops
   }

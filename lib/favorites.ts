@@ -22,7 +22,7 @@ export class FavoritesManager {
     try {
       const stored = localStorage.getItem(FAVORITES_KEY);
       if (stored) {
-        this.favorites = JSON.parse(stored).map((fav: any) => ({
+        this.favorites = JSON.parse(stored).map((fav: FavoriteRoute & { createdAt: string; lastUsed: string }) => ({
           ...fav,
           createdAt: new Date(fav.createdAt),
           lastUsed: new Date(fav.lastUsed)
