@@ -875,7 +875,7 @@ export default function Home() {
                     type="text"
                     placeholder="Search locations..."
                     className="w-full pl-10 pr-4 py-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    onChange={(e) => {
+                    onChange={() => {
                       // You can add search functionality here if needed
                     }}
                   />

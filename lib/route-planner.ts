@@ -72,8 +72,8 @@ export class RoutePlanner {
           fromStop,
           toStop,
           route,
-          time: this.calculateTravelTime(fromStop, toStop),
-          distance: this.calculateDistance(fromStop, toStop)
+          time: this.calculateTravelTime(),
+          distance: this.calculateDistance()
         };
 
         const forwardKey = fromStop.id;
@@ -87,8 +87,8 @@ export class RoutePlanner {
           fromStop: toStop,
           toStop: fromStop,
           route,
-          time: this.calculateTravelTime(toStop, fromStop),
-          distance: this.calculateDistance(toStop, fromStop)
+          time: this.calculateTravelTime(),
+          distance: this.calculateDistance()
         };
 
         const backwardKey = toStop.id;
@@ -680,7 +680,7 @@ export class RoutePlanner {
 }
 
   // Calculate travel time between two stops
-  private calculateTravelTime(fromStop: BusStop, toStop: BusStop): number {
+  private calculateTravelTime(): number {
     // Base time: 2.5 minutes per stop + distance factor
     const baseTime = 2.5;
     const distance = this.calculateDistance();
@@ -697,7 +697,7 @@ export class RoutePlanner {
   private calculateRouteTime(stops: BusStop[]): number {
     let totalTime = 0;
     for (let i = 0; i < stops.length - 1; i++) {
-      totalTime += this.calculateTravelTime(stops[i], stops[i + 1]);
+      totalTime += this.calculateTravelTime();
     }
     return totalTime;
   }
