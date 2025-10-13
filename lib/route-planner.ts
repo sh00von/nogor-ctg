@@ -706,7 +706,7 @@ export class RoutePlanner {
   private calculateRouteDistance(stops: BusStop[]): number {
     let totalDistance = 0;
     for (let i = 0; i < stops.length - 1; i++) {
-      totalDistance += this.calculateDistance(stops[i], stops[i + 1]);
+      totalDistance += this.calculateDistance();
     }
     return Math.round(totalDistance * 10) / 10;
   }
