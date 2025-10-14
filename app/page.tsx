@@ -20,6 +20,7 @@ export default function Home() {
   
   // Shared popover state
   const [activePopover, setActivePopover] = useState<'from' | 'to' | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Route planner states
   const [routePlan, setRoutePlan] = useState<RoutePlan | null>(null);
@@ -151,7 +152,20 @@ export default function Home() {
   const handlePopoverClose = () => {
     console.log('Popover closing');
     setActivePopover(null);
+    setSearchTerm('');
   };
+
+  // Filter stops based on search term
+  const filteredStops = useMemo(() => {
+    if (!searchTerm.trim()) return routes;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return routes.filter(route => 
+      route.stops.some(stop => 
+        stop.name.toLowerCase().includes(searchLower)
+      )
+    );
+  }, [routes, searchTerm]);
 
   const handleLocationSelect = (location: string, type: 'from' | 'to') => {
     if (type === 'from') {
@@ -1005,37 +1019,53 @@ export default function Home() {
                   <input
                     type="text"
                     placeholder="Search locations..."
+                    value={searchTerm}
                     className="w-full pl-10 pr-4 py-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    onChange={() => {
-                      // You can add search functionality here if needed
-                    }}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
 
               {/* Location List */}
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {allStops.map((stop) => (
-                  <div
-                    key={stop}
-                    className="cursor-pointer p-4 border rounded-lg hover:bg-muted transition-colors"
-                    onClick={() => handleLocationSelect(stop, activePopover)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                        <MapPin className="w-4 h-4 text-primary" />
+                {(() => {
+                  const filteredStops = allStops.filter(stop => 
+                    !searchTerm.trim() || 
+                    stop.toLowerCase().includes(searchTerm.toLowerCase())
+                  );
+                  
+                  if (filteredStops.length === 0 && searchTerm.trim()) {
+                    return (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>No locations found</p>
+                        <p className="text-sm">Try a different search term</p>
                       </div>
-                      <div>
-                        <div className="font-medium">{stop}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {routes.filter(route => 
-                            route.stops.some(s => s.name === stop)
-                          ).length} routes available
+                    );
+                  }
+                  
+                  return filteredStops.map((stop) => (
+                    <div
+                      key={stop}
+                      className="cursor-pointer p-4 border rounded-lg hover:bg-muted transition-colors"
+                      onClick={() => handleLocationSelect(stop, activePopover)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                          <MapPin className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{stop}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {routes.filter(route => 
+                              route.stops.some(s => s.name === stop)
+                            ).length} routes available
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             </div>
           </div>

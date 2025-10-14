@@ -130,18 +130,18 @@ const WeatherWidget: React.FC<WeatherWidgetProps> = ({ className = '' }) => {
     } else if (weather.temperature > 35) {
       return {
         message: 'Hot weather - Choose routes with air-conditioned buses',
-        color: 'text-orange-600 dark:text-orange-400',
+        color: 'text-destructive',
         icon: <Zap className="w-5 h-5" />,
-        bgColor: 'bg-orange-50 dark:bg-orange-950',
-        borderColor: 'border-orange-200 dark:border-orange-800'
+        bgColor: 'bg-destructive/10',
+        borderColor: 'border-destructive/20'
       };
     } else {
       return {
         message: 'Good weather for travel',
-        color: 'text-green-600 dark:text-green-400',
+        color: 'text-primary',
         icon: <CheckCircle className="w-5 h-5" />,
-        bgColor: 'bg-green-50 dark:bg-green-950',
-        borderColor: 'border-green-200 dark:border-green-800'
+        bgColor: 'bg-primary/10',
+        borderColor: 'border-primary/20'
       };
     }
   };
@@ -239,11 +239,11 @@ const WeatherWidget: React.FC<WeatherWidgetProps> = ({ className = '' }) => {
         </div>
 
         {/* Route Recommendation */}
-        <div className={`p-4 rounded-lg border ${recommendation.bgColor} ${recommendation.borderColor}`}>
+        <div className="p-4 rounded-lg border bg-muted/20">
           <div className="flex items-center gap-3">
             <div className="text-primary">{recommendation.icon}</div>
             <div>
-              <p className={`text-sm font-medium ${recommendation.color}`}>
+              <p className="text-sm font-medium text-foreground">
                 {recommendation.message}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
