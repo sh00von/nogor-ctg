@@ -76,7 +76,13 @@ export default function Home() {
 
     setIsPlanning(true);
     try {
-      const plan = routePlanner.findRoutes(fromValue, toValue);
+      // Use setTimeout to prevent UI blocking
+      const plan = await new Promise<RoutePlan>((resolve) => {
+        setTimeout(() => {
+          resolve(routePlanner.findRoutes(fromValue, toValue));
+        }, 0);
+      });
+      
       setRoutePlan(plan);
       
       if (plan.options.length === 0) {
@@ -84,7 +90,8 @@ export default function Home() {
       } else {
         toast.success(`${plan.options.length} routes found`);
       }
-    } catch {
+    } catch (error) {
+      console.error('Route planning error:', error);
       toast.error('Error planning route');
     } finally {
       setIsPlanning(false);

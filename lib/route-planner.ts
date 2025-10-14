@@ -577,6 +577,7 @@ export class RoutePlanner {
   // Advanced RAPTOR-based route finding algorithm
   findRoutes(fromLocation: string, toLocation: string): RoutePlan {
     const startTime = Date.now();
+    const maxSearchTime = 5000; // 5 seconds timeout
     
     const fromStops = this.findStopsByLocation(fromLocation);
     const toStops = this.findStopsByLocation(toLocation);
@@ -600,9 +601,23 @@ export class RoutePlanner {
 
     const options: RouteOption[] = [];
 
-    // Find routes for each from/to stop combination
+    // Find routes for each from/to stop combination (limit to prevent freezing)
+    const maxCombinations = 10; // Limit combinations to prevent performance issues
+    let combinationCount = 0;
+    
     for (const fromStop of fromStops) {
+      if (combinationCount >= maxCombinations) break;
+      
       for (const toStop of toStops) {
+        if (combinationCount >= maxCombinations) break;
+        combinationCount++;
+        
+        // Check timeout
+        if (Date.now() - startTime > maxSearchTime) {
+          console.log('Search timeout reached, returning partial results');
+          break;
+        }
+        
         console.log(`Finding routes between ${fromStop.stop.name} and ${toStop.stop.name}`);
         const routes = this.findRoutesBetweenStops(fromStop.stop, toStop.stop);
         console.log(`Found ${routes.length} routes`);
@@ -1085,6 +1100,10 @@ export class RoutePlanner {
 
   // Find routes with transfers using enhanced BFS approach
   private findRoutesWithTransfers(fromStop: BusStop, toStop: BusStop, maxTransfers: number): RouteOption[] {
+    const startTime = Date.now();
+    const maxSearchTime = 2000; // 2 seconds timeout for transfer routes
+    const maxQueueSize = 1000; // Limit queue size to prevent memory issues
+    
     const options: RouteOption[] = [];
     const visited = new Set<string>();
     const queue: Array<{
@@ -1113,6 +1132,12 @@ export class RoutePlanner {
     }
 
     while (queue.length > 0) {
+      // Check timeout and queue size limits
+      if (Date.now() - startTime > maxSearchTime || queue.length > maxQueueSize) {
+        console.log('BFS search timeout or queue limit reached');
+        break;
+      }
+      
       const current = queue.shift()!;
       const stateKey = `${current.currentStop.id}-${current.transfers}-${current.currentRouteId}`;
 
