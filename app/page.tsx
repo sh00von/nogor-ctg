@@ -1,7 +1,6 @@
 'use client'
-import { Bus, MapPin, Search, Navigation, Clock, Users, ArrowRight, Route as RouteIcon, ChevronsUpDown, X, Zap, Target } from 'lucide-react';
+import { Bus, MapPin, Search, Navigation, Clock, Users, ArrowRight, Route as RouteIcon, ChevronsUpDown, X, Zap, Target, Sun } from 'lucide-react';
 import { getAllRoutes, BusRoute } from '@/lib/bus-routes';
-import { FuzzySearch } from '@/lib/fuzzy-search';
 import { RoutePlanner, RoutePlan } from '@/lib/route-planner';
 import toast, { Toaster } from 'react-hot-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,11 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useState, useMemo } from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
+import WeatherWidget from '@/components/WeatherWidget';
 
 export default function Home() {
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentLocation] = useState('');
   
   const [fromValue, setFromValue] = useState('');
   const [toValue, setToValue] = useState('');
@@ -25,11 +23,13 @@ export default function Home() {
   const [routePlan, setRoutePlan] = useState<RoutePlan | null>(null);
   const [isPlanning, setIsPlanning] = useState(false);
   
+  // Mobile tab state
+  const [activeTab, setActiveTab] = useState<'routes' | 'weather' | 'guide'>('routes');
+  
   
   const routes = useMemo(() => getAllRoutes(), []);
   
-  // Initialize fuzzy search and route planner
-  const fuzzySearch = useMemo(() => new FuzzySearch(routes), [routes]);
+  // Initialize route planner
   const routePlanner = useMemo(() => new RoutePlanner(routes), [routes]);
 
   // Get all unique English stop names for combobox
@@ -46,11 +46,10 @@ export default function Home() {
     return Array.from(items).sort();
   }, [routes]);
 
-  // Filter routes based on search term
+  // All routes (no search filtering)
   const filteredRoutes = useMemo(() => {
-    if (!searchTerm.trim()) return routes;
-    return fuzzySearch.search(searchTerm);
-  }, [searchTerm, fuzzySearch, routes]);
+    return routes;
+  }, [routes]);
 
   // Get routes from current location
   const routesFromLocation = useMemo(() => {
@@ -96,7 +95,6 @@ export default function Home() {
     setFromValue('');
     setToValue('');
     setRoutePlan(null);
-    setSearchTerm('');
   };
 
   // Shared popover handlers
@@ -138,15 +136,12 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-lg font-bold lg:text-xl">
-                  Chittagong Bus Tracker
+                  Nogor CTG
                 </h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
-                <Navigation className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>
@@ -247,15 +242,18 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* Weather Widget */}
+                  <WeatherWidget />
+
                   {/* Quick Route Suggestions */}
-                  {(fromValue || currentLocation) && routesFromLocation.length > 0 && (
+                  {fromValue && routesFromLocation.length > 0 && (
                     <div className="bg-card rounded-2xl p-6 shadow-sm border">
                       <div className="flex items-center gap-3 mb-4">
                         <MapPin className="w-5 h-5 text-primary" />
                         <div>
                           <h3 className="font-semibold">Quick Routes</h3>
                           <p className="text-sm text-muted-foreground">
-                            From {fromValue || currentLocation}
+                            From {fromValue}
                           </p>
                         </div>
                       </div>
@@ -453,7 +451,10 @@ export default function Home() {
       <div className="lg:hidden">
         <div className="px-4 py-4 pb-20">
           
-          {/* Quick Search Bar - Native Style */}
+          {/* Mobile Tab Content */}
+          {activeTab === 'routes' && (
+            <>
+              {/* Quick Search Bar - Native Style */}
           <div className="mb-6">
             <div className="bg-card rounded-2xl p-4 shadow-sm border">
               <div className="flex items-center gap-3 mb-4">
@@ -543,7 +544,7 @@ export default function Home() {
           </div>
 
           {/* Quick Route Suggestions */}
-          {(fromValue || currentLocation) && routesFromLocation.length > 0 && (
+          {fromValue && routesFromLocation.length > 0 && (
             <div className="mb-8">
               <Card className="shadow-md">
                 <CardContent className="p-4 md:p-6">
@@ -552,7 +553,7 @@ export default function Home() {
                     <div>
                       <h3 className="font-semibold">Quick Routes</h3>
                       <p className="text-sm text-muted-foreground">
-                        From {fromValue || currentLocation}
+                        From {fromValue}
                       </p>
                     </div>
                   </div>
@@ -709,15 +710,8 @@ export default function Home() {
               </div>
             </div>
 
-            {searchTerm ? (
-              <div className="mb-4">
-                <div className="text-sm text-muted-foreground">
-                  {filteredRoutes.length} results for &quot;{searchTerm}&quot;
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                {filteredRoutes.map((route) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              {filteredRoutes.map((route) => (
                   <div key={route.id}>
                     <div 
                       className="cursor-pointer transition-all duration-300 group bg-card rounded-2xl p-4 shadow-sm border hover:shadow-md active:scale-95"
@@ -747,9 +741,106 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
           </div>
+            </>
+          )}
+
+          {/* Weather Tab Content */}
+          {activeTab === 'weather' && (
+            <div className="space-y-6">
+              <WeatherWidget />
+              
+              {/* Weather Tips */}
+              <div className="bg-card rounded-2xl p-4 shadow-sm border">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Sun className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Weather Tips</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Travel advice based on current conditions
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400 dark:bg-blue-950 dark:border-blue-600">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">☔</span>
+                      <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                        Rainy weather - Consider routes with covered stops
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-400 dark:bg-orange-950 dark:border-orange-600">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🌡️</span>
+                      <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                        Hot weather - Choose routes with air-conditioned buses
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-400 dark:bg-green-950 dark:border-green-600">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">✅</span>
+                      <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                        Good weather for travel - Enjoy your journey!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Guide Tab Content */}
+          {activeTab === 'guide' && (
+            <div className="space-y-6">
+              <div className="bg-card rounded-2xl p-4 shadow-sm border">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Navigation className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Travel Guide</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Tips for using Chittagong bus system
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium mb-2">🚌 How to Use Bus Routes</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Select your starting point and destination to find the best bus routes. 
+                      The system will show you direct routes and transfer options.
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium mb-2">🎫 Fare Information</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Bus fares vary by route and distance. Most routes cost between 10-25 BDT. 
+                      Have exact change ready when boarding.
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium mb-2">⏰ Operating Hours</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Buses typically run from 6:00 AM to 10:00 PM. 
+                      Frequency varies by route and time of day.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     
@@ -915,21 +1006,48 @@ export default function Home() {
       {/* Mobile App Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t safe-area-bottom z-50 lg:hidden">
         <div className="flex items-center justify-around py-2 px-4">
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl">
-            <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
-              <RouteIcon className="w-4 h-4 text-primary" />
+          <Button 
+            variant={activeTab === 'routes' ? 'default' : 'ghost'} 
+            size="sm" 
+            className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl"
+            onClick={() => setActiveTab('routes')}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+              activeTab === 'routes' ? 'bg-primary-foreground' : 'bg-primary/10'
+            }`}>
+              <RouteIcon className={`w-4 h-4 ${
+                activeTab === 'routes' ? 'text-primary' : 'text-primary'
+              }`} />
             </div>
             <span className="text-xs">Routes</span>
           </Button>
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl">
-            <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
-              <Target className="w-4 h-4 text-primary" />
+          <Button 
+            variant={activeTab === 'weather' ? 'default' : 'ghost'} 
+            size="sm" 
+            className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl"
+            onClick={() => setActiveTab('weather')}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+              activeTab === 'weather' ? 'bg-primary-foreground' : 'bg-primary/10'
+            }`}>
+              <Sun className={`w-4 h-4 ${
+                activeTab === 'weather' ? 'text-primary' : 'text-primary'
+              }`} />
             </div>
-            <span className="text-xs">Plan</span>
+            <span className="text-xs">Weather</span>
           </Button>
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl">
-            <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
-              <Navigation className="w-4 h-4 text-primary" />
+          <Button 
+            variant={activeTab === 'guide' ? 'default' : 'ghost'} 
+            size="sm" 
+            className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl"
+            onClick={() => setActiveTab('guide')}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+              activeTab === 'guide' ? 'bg-primary-foreground' : 'bg-primary/10'
+            }`}>
+              <Navigation className={`w-4 h-4 ${
+                activeTab === 'guide' ? 'text-primary' : 'text-primary'
+              }`} />
             </div>
             <span className="text-xs">Guide</span>
           </Button>
