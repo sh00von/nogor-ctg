@@ -72,7 +72,7 @@ export const busRoutes: BusRoute[] = [
       { id: 19, name: "Muradpur" },
       { id: 20, name: "2no Gate" },
       { id: 21, name: "Medical" },
-      { id: 22, name: "Chawkbazar (Mosque)" },
+      { id: 8, name: "Chawkbazar" },
       { id: 23, name: "Jamalkhan Road" },
       { id: 10, name: "Andarkilla" },
       { id: 11, name: "Laldighi" },
