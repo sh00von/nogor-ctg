@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { BusRoute, BusStop } from './bus-routes';
+import { BusRoute, BusStop, getRoutesByStopId, getRouteById } from './bus-routes';
 
 export interface RouteLeg {
   number: ReactNode;
@@ -577,7 +577,7 @@ export class RoutePlanner {
   // Advanced RAPTOR-based route finding algorithm
   findRoutes(fromLocation: string, toLocation: string): RoutePlan {
     const startTime = Date.now();
-    const maxSearchTime = 5000; // 5 seconds timeout
+    const maxSearchTime = 3000; // Reduced to 3 seconds timeout
     
     const fromStops = this.findStopsByLocation(fromLocation);
     const toStops = this.findStopsByLocation(toLocation);
@@ -602,7 +602,7 @@ export class RoutePlanner {
     const options: RouteOption[] = [];
 
     // Find routes for each from/to stop combination (limit to prevent freezing)
-    const maxCombinations = 10; // Limit combinations to prevent performance issues
+    const maxCombinations = 5; // Reduced from 10 to 5
     let combinationCount = 0;
     
     for (const fromStop of fromStops) {
@@ -612,7 +612,7 @@ export class RoutePlanner {
         if (combinationCount >= maxCombinations) break;
         combinationCount++;
         
-        // Check timeout
+        // Check timeout more frequently
         if (Date.now() - startTime > maxSearchTime) {
           console.log('Search timeout reached, returning partial results');
           break;
@@ -648,6 +648,23 @@ export class RoutePlanner {
 
     const searchTime = Date.now() - startTime;
 
+    // Fallback: If no routes found and search took too long, try simple approach
+    if (uniqueOptions.length === 0 && searchTime > 2000) {
+      console.log('No routes found with complex algorithm, trying simple fallback...');
+      const fallbackOptions = this.findSimpleRoutes(fromStops[0].stop, toStops[0].stop);
+      if (fallbackOptions.length > 0) {
+        console.log(`Fallback found ${fallbackOptions.length} routes`);
+        return {
+          from: fromLocation,
+          to: toLocation,
+          options: fallbackOptions,
+          bestOption: fallbackOptions[0] || null,
+          totalOptions: fallbackOptions.length,
+          searchTime: Date.now() - startTime
+        };
+      }
+    }
+
     return {
       from: fromLocation,
       to: toLocation,
@@ -656,6 +673,81 @@ export class RoutePlanner {
       totalOptions: uniqueOptions.length,
       searchTime
     };
+  }
+
+  // Simple fallback route finding method
+  private findSimpleRoutes(fromStop: BusStop, toStop: BusStop): RouteOption[] {
+    const options: RouteOption[] = [];
+    
+    try {
+      // Try direct routes only
+      const directRoutes = this.findDirectRoutes(fromStop, toStop);
+      options.push(...directRoutes);
+      
+      // If no direct routes, try single transfer
+      if (options.length === 0) {
+        const routeIdsFromStop = getRoutesByStopId(fromStop.id);
+        const routeIdsToStop = getRoutesByStopId(toStop.id);
+        
+        // Find common routes
+        const commonRouteIds = routeIdsFromStop.filter(routeId => 
+          routeIdsToStop.includes(routeId)
+        );
+        
+        if (commonRouteIds.length > 0) {
+          const route = getRouteById(commonRouteIds[0]);
+          if (route) {
+            const fromIndex = route.stops.findIndex(s => s.id === fromStop.id);
+            const toIndex = route.stops.findIndex(s => s.id === toStop.id);
+            
+            if (fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex) {
+              const leg: RouteLeg = {
+                number: route.id,
+                routeId: route.id,
+                routeName: route.name,
+                fromStop: fromStop,
+                toStop: toStop,
+                stops: route.stops.slice(fromIndex, toIndex + 1),
+                estimatedTime: Math.abs(toIndex - fromIndex) * 2, // 2 minutes per stop
+                distance: Math.abs(toIndex - fromIndex) * 0.5, // 0.5 km per stop
+              };
+              
+              options.push({
+                legs: [leg],
+                totalTime: leg.estimatedTime,
+                transfers: 0,
+                walkingTime: 0,
+                totalDistance: leg.distance,
+                confidence: 0.8,
+                score: {
+                  timeScore: 80,
+                  transferScore: 100,
+                  reliabilityScore: 80,
+                  comfortScore: 70,
+                  accessibilityScore: 60,
+                  totalScore: 78,
+                  distanceScore: 70,
+                  factors: {
+                    time: leg.estimatedTime,
+                    transfers: 0,
+                    distance: leg.distance,
+                    walkingTime: 0,
+                    routeCount: 1,
+                    confidence: 0.8
+                  }
+                },
+                id: '',
+                routeType: 'direct'
+              });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Simple route finding error:', error);
+    }
+    
+    return options;
   }
 
   // Enhanced multi-algorithm route finding - SHORTEST PATH FIRST
@@ -1101,8 +1193,8 @@ export class RoutePlanner {
   // Find routes with transfers using enhanced BFS approach
   private findRoutesWithTransfers(fromStop: BusStop, toStop: BusStop, maxTransfers: number): RouteOption[] {
     const startTime = Date.now();
-    const maxSearchTime = 2000; // 2 seconds timeout for transfer routes
-    const maxQueueSize = 1000; // Limit queue size to prevent memory issues
+    const maxSearchTime = 1500; // Reduced to 1.5 seconds timeout for transfer routes
+    const maxQueueSize = 500; // Reduced queue size to prevent memory issues
     
     const options: RouteOption[] = [];
     const visited = new Set<string>();

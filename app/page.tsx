@@ -79,15 +79,29 @@ export default function Home() {
       return;
     }
 
+    console.log('Starting route planning...', { fromValue, toValue });
     setIsPlanning(true);
+    
     try {
-      // Use setTimeout to prevent UI blocking
-      const plan = await new Promise<RoutePlan>((resolve) => {
+      // Add a timeout to prevent infinite loading
+      const timeoutPromise = new Promise<RoutePlan>((_, reject) => {
         setTimeout(() => {
-          resolve(routePlanner.findRoutes(fromValue, toValue));
-        }, 0);
+          reject(new Error('Route planning timeout after 10 seconds'));
+        }, 10000);
       });
+
+      const planningPromise = new Promise<RoutePlan>((resolve) => {
+        setTimeout(() => {
+          console.log('Executing route planner...');
+          const result = routePlanner.findRoutes(fromValue, toValue);
+          console.log('Route planner result:', result);
+          resolve(result);
+        }, 100); // Small delay to prevent UI blocking
+      });
+
+      const plan = await Promise.race([planningPromise, timeoutPromise]);
       
+      console.log('Setting route plan:', plan);
       setRoutePlan(plan);
       
       if (plan.options.length === 0) {
@@ -97,8 +111,9 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Route planning error:', error);
-      toast.error('Error planning route');
+      toast.error('Error planning route: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
+      console.log('Setting isPlanning to false');
       setIsPlanning(false);
     }
   };
