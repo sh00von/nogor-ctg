@@ -85,13 +85,11 @@ export default function Home() {
     try {
       // Use requestIdleCallback for truly non-blocking execution
       const plan = await new Promise<RoutePlan>((resolve, reject) => {
-        let timeoutId: NodeJS.Timeout;
-        
-        // Set up timeout
-        timeoutId = setTimeout(() => {
+        const timeoutId: NodeJS.Timeout = setTimeout(() => {
           console.log('Route planning timeout after 5 seconds');
           reject(new Error('Route planning timeout after 5 seconds'));
-        }, 5000); // Reduced to 5 seconds
+        }, 5000);
+        
         
         // Use requestIdleCallback if available, otherwise setTimeout
         const executePlanning = () => {

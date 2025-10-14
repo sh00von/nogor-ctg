@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { BusRoute, BusStop, getRoutesByStopId, getRouteById } from './bus-routes';
+import { BusRoute, BusStop } from './bus-routes';
 
 export interface RouteLeg {
   number: ReactNode;
@@ -30,15 +30,6 @@ export interface RouteScore {
     routeCount: number;     // Number of different routes used
     confidence: number;     // Algorithm confidence (0-1)
   };
-}
-
-interface AStarNode {
-  stopId: number;
-  routeId: number;
-  cameFrom: AStarNode | null;
-  g: number;
-  h: number;
-  f: number;
 }
 
 export interface RouteOption {
@@ -389,12 +380,13 @@ export class RoutePlanner {
 
       if (!current) break;
       
-      for (const node of openSet.values()) {
-        if (node.fScore < lowestFScore) {
-          lowestFScore = node.fScore;
-          current = node as AStarNode;
-        }
+      // Check if we reached the goal
+      if (current.stopId === toStopId) {
+        return this.reconstructAStarPath(current, fromStopId, toStopId);
       }
+
+      openSet.delete(current.stopId);
+      closedSet.add(current.stopId);
 
       // Explore neighbors
       const neighbors = this.adjacencyList.get(current.stopId) || [];
@@ -432,9 +424,9 @@ export class RoutePlanner {
   }
 
   // Reconstruct path from A* result
-  private reconstructAStarPath(goal: AStarNode, fromStopId: number, toStopId: number): RouteOption | null {
-    const path: AStarNode[] = [];
-    let current: AStarNode | null = goal;
+  private reconstructAStarPath(goal: any, fromStopId: number, toStopId: number): RouteOption | null {
+    const path: any[] = [];
+    let current: any | null = goal;
 
     while (current) {
       path.unshift(current);
@@ -484,7 +476,7 @@ export class RoutePlanner {
 
     if (legs.length === 0) return null;
 
-    const totalTime = legs.reduce((sum, leg) => sum + leg.estimatedTime, 0) + ((legs.length - 1) * 5);
+    const totalTime = legs.reduce((sum, leg) => sum + leg.estimatedTime, 0) + (goal.transfers * 5);
     const totalDistance = legs.reduce((sum, leg) => sum + leg.distance, 0);
 
     return {
@@ -492,10 +484,10 @@ export class RoutePlanner {
       legs,
       totalTime,
       totalDistance,
-      transfers: legs.length - 1,
-      walkingTime: (legs.length - 1) * 2,
-      confidence: this.calculateConfidence(legs[0], legs.length - 1),    
-      routeType: legs.length === 1 ? 'direct' : legs.length === 2 ? 'transfer' : 'multi_transfer'
+      transfers: goal.transfers,
+      walkingTime: goal.transfers * 2,
+      confidence: this.calculateConfidence(legs[0], goal.transfers),
+      routeType: goal.transfers === 0 ? 'direct' : goal.transfers === 1 ? 'transfer' : 'multi_transfer'
     };
   }
 
@@ -577,7 +569,6 @@ export class RoutePlanner {
   // Advanced RAPTOR-based route finding algorithm
   findRoutes(fromLocation: string, toLocation: string): RoutePlan {
     const startTime = Date.now();
-    const maxSearchTime = 1000; // Reduced to 1 second timeout
     
     const fromStops = this.findStopsByLocation(fromLocation);
     const toStops = this.findStopsByLocation(toLocation);
@@ -601,27 +592,11 @@ export class RoutePlanner {
 
     const options: RouteOption[] = [];
 
-    // Find routes for each from/to stop combination (limit to prevent freezing)
-    const maxCombinations = 3; // Reduced to 3 to prevent freezing
-    let combinationCount = 0;
-    
+    // Find routes for each from/to stop combination
     for (const fromStop of fromStops) {
-      if (combinationCount >= maxCombinations) break;
-      
       for (const toStop of toStops) {
-        if (combinationCount >= maxCombinations) break;
-        combinationCount++;
-        
-        // Check timeout more frequently
-        if (Date.now() - startTime > maxSearchTime) {
-          console.log('Search timeout reached, returning partial results');
-          break;
-        }
-        
         console.log(`Finding routes between ${fromStop.stop.name} and ${toStop.stop.name}`);
-        
-        // Use ultra-simple fallback first to prevent freezing
-        const routes = this.findUltraSimpleRoutes(fromStop.stop, toStop.stop);
+        const routes = this.findRoutesBetweenStops(fromStop.stop, toStop.stop);
         console.log(`Found ${routes.length} routes`);
         options.push(...routes);
       }
@@ -650,23 +625,6 @@ export class RoutePlanner {
 
     const searchTime = Date.now() - startTime;
 
-    // Fallback: If no routes found and search took too long, try simple approach
-    if (uniqueOptions.length === 0 && searchTime > 500) {
-      console.log('No routes found with complex algorithm, trying simple fallback...');
-      const fallbackOptions = this.findUltraSimpleRoutes(fromStops[0].stop, toStops[0].stop);
-      if (fallbackOptions.length > 0) {
-        console.log(`Fallback found ${fallbackOptions.length} routes`);
-        return {
-          from: fromLocation,
-          to: toLocation,
-          options: fallbackOptions,
-          bestOption: fallbackOptions[0] || null,
-          totalOptions: fallbackOptions.length,
-          searchTime: Date.now() - startTime
-        };
-      }
-    }
-
     return {
       from: fromLocation,
       to: toLocation,
@@ -675,318 +633,6 @@ export class RoutePlanner {
       totalOptions: uniqueOptions.length,
       searchTime
     };
-  }
-
-  // Ultra-simple route finding method - no complex algorithms
-  private findUltraSimpleRoutes(fromStop: BusStop, toStop: BusStop): RouteOption[] {
-    const options: RouteOption[] = [];
-    
-    try {
-      console.log(`Ultra-simple route search: ${fromStop.name} to ${toStop.name}`);
-      
-      // Get routes that pass through both stops
-      const routeIdsFromStop = getRoutesByStopId(fromStop.id);
-      const routeIdsToStop = getRoutesByStopId(toStop.id);
-      
-      // Find common routes (direct routes only)
-      const commonRouteIds = routeIdsFromStop.filter(routeId => 
-        routeIdsToStop.includes(routeId)
-      );
-      
-      console.log(`Found ${commonRouteIds.length} common routes`);
-      
-      // Only process first 2 routes to prevent any delays
-      for (const routeId of commonRouteIds.slice(0, 2)) {
-        const route = getRouteById(routeId);
-        if (route) {
-          const fromIndex = route.stops.findIndex(s => s.id === fromStop.id);
-          const toIndex = route.stops.findIndex(s => s.id === toStop.id);
-          
-          if (fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex) {
-            const leg: RouteLeg = {
-              number: route.id,
-              routeId: route.id,
-              routeName: route.name,
-              fromStop: fromStop,
-              toStop: toStop,
-              stops: route.stops.slice(fromIndex, toIndex + 1),
-              estimatedTime: Math.abs(toIndex - fromIndex) * 2, // 2 minutes per stop
-              distance: Math.abs(toIndex - fromIndex) * 0.5, // 0.5 km per stop
-            };
-            
-            options.push({
-              legs: [leg],
-              totalTime: leg.estimatedTime,
-              transfers: 0,
-              walkingTime: 0,
-              totalDistance: leg.distance,
-              confidence: 0.9,
-              score: {
-                timeScore: 90,
-                transferScore: 100,
-                distanceScore: 80,
-                reliabilityScore: 90,
-                comfortScore: 80,
-                accessibilityScore: 70,
-                totalScore: 85,
-                factors: {
-                  time: leg.estimatedTime,
-                  transfers: 0,
-                  distance: leg.distance,
-                  walkingTime: 0,
-                  routeCount: 1,
-                  confidence: 0.9
-                }
-              },
-              id: `ultra-simple-${routeId}`,
-              routeType: 'direct'
-            });
-          }
-        }
-      }
-      
-      // If no direct routes found, try to find single-transfer routes
-      if (options.length === 0) {
-        console.log('No direct routes found, looking for single-transfer routes...');
-        
-        // Find intersection points (stops that have routes to both from and to stops)
-        const allStops = this.getAllStops();
-        const intersectionStops = allStops.filter(stop => {
-          const routesFromStop = getRoutesByStopId(stop.id);
-          const routesToStop = getRoutesByStopId(toStop.id);
-          
-          // Check if there's a route from intersection to destination
-          const hasRouteToDestination = routesFromStop.some(routeId => 
-            routesToStop.includes(routeId)
-          );
-          
-          // Check if there's a route from origin to intersection
-          const hasRouteFromOrigin = routeIdsFromStop.some(routeId => {
-            const route = getRouteById(routeId);
-            return route && route.stops.some(s => s.id === stop.id);
-          });
-          
-          return hasRouteFromOrigin && hasRouteToDestination;
-        });
-        
-        console.log(`Found ${intersectionStops.length} intersection stops`);
-        
-        // Try first intersection stop for single transfer
-        if (intersectionStops.length > 0) {
-          const transferStop = intersectionStops[0];
-          console.log(`Trying transfer at ${transferStop.name}`);
-          
-          // Create two-leg route
-          const leg1 = this.createSimpleLeg(fromStop, transferStop, routeIdsFromStop);
-          const leg2 = this.createSimpleLeg(transferStop, toStop, getRoutesByStopId(transferStop.id));
-          
-          if (leg1 && leg2) {
-            options.push({
-              legs: [leg1, leg2],
-              totalTime: leg1.estimatedTime + leg2.estimatedTime + 5, // 5 min transfer time
-              transfers: 1,
-              walkingTime: 5,
-              totalDistance: leg1.distance + leg2.distance,
-              confidence: 0.7,
-              score: {
-                timeScore: 70,
-                transferScore: 80,
-                distanceScore: 70,
-                reliabilityScore: 70,
-                comfortScore: 60,
-                accessibilityScore: 60,
-                totalScore: 68,
-                factors: {
-                  time: leg1.estimatedTime + leg2.estimatedTime + 5,
-                  transfers: 1,
-                  distance: leg1.distance + leg2.distance,
-                  walkingTime: 5,
-                  routeCount: 2,
-                  confidence: 0.7
-                }
-              },
-              id: `ultra-simple-transfer-${transferStop.id}`,
-              routeType: 'transfer'
-            });
-          }
-        }
-      }
-      
-      console.log(`Ultra-simple search found ${options.length} routes`);
-      
-      // If still no routes found, create a basic fallback route
-      if (options.length === 0) {
-        console.log('No routes found, creating basic fallback route...');
-        
-        // Create a simple route with estimated time and distance
-        const estimatedTime = 30; // 30 minutes default
-        const estimatedDistance = 10; // 10 km default
-        
-        const fallbackLeg: RouteLeg = {
-          number: 0,
-          routeId: 0,
-          routeName: 'Route Not Available',
-          fromStop: fromStop,
-          toStop: toStop,
-          stops: [fromStop, toStop],
-          estimatedTime: estimatedTime,
-          distance: estimatedDistance,
-        };
-        
-        options.push({
-          legs: [fallbackLeg],
-          totalTime: estimatedTime,
-          transfers: 0,
-          walkingTime: 0,
-          totalDistance: estimatedDistance,
-          confidence: 0.3,
-          score: {
-            timeScore: 30,
-            transferScore: 50,
-            distanceScore: 30,
-            reliabilityScore: 20,
-            comfortScore: 30,
-            accessibilityScore: 30,
-            totalScore: 32,
-            factors: {
-              time: estimatedTime,
-              transfers: 0,
-              distance: estimatedDistance,
-              walkingTime: 0,
-              routeCount: 1,
-              confidence: 0.3
-            }
-          },
-          id: 'fallback-route',
-          routeType: 'fallback'
-        });
-        
-        console.log('Created fallback route');
-      }
-      
-    } catch (error) {
-      console.error('Ultra-simple route finding error:', error);
-    }
-    
-    return options;
-  }
-
-  // Helper method to create a simple leg between two stops
-  private createSimpleLeg(fromStop: BusStop, toStop: BusStop, availableRouteIds: number[]): RouteLeg | null {
-    try {
-      for (const routeId of availableRouteIds.slice(0, 1)) { // Only try first route
-        const route = getRouteById(routeId);
-        if (route) {
-          const fromIndex = route.stops.findIndex(s => s.id === fromStop.id);
-          const toIndex = route.stops.findIndex(s => s.id === toStop.id);
-          
-          if (fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex) {
-            return {
-              number: route.id,
-              routeId: route.id,
-              routeName: route.name,
-              fromStop: fromStop,
-              toStop: toStop,
-              stops: route.stops.slice(fromIndex, toIndex + 1),
-              estimatedTime: Math.abs(toIndex - fromIndex) * 2, // 2 minutes per stop
-              distance: Math.abs(toIndex - fromIndex) * 0.5, // 0.5 km per stop
-            };
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error creating simple leg:', error);
-    }
-    
-    return null;
-  }
-
-  // Helper method to get all stops
-  private getAllStops(): BusStop[] {
-    const allStops = new Map<number, BusStop>();
-    
-    for (const route of this.routes) {
-      for (const stop of route.stops) {
-        allStops.set(stop.id, stop);
-      }
-    }
-    
-    return Array.from(allStops.values());
-  }
-
-  // Simple fallback route finding method
-  private findSimpleRoutes(fromStop: BusStop, toStop: BusStop): RouteOption[] {
-    const options: RouteOption[] = [];
-    
-    try {
-      // Try direct routes only
-      const directRoutes = this.findDirectRoutes(fromStop, toStop);
-      options.push(...directRoutes);
-      
-      // If no direct routes, try single transfer
-      if (options.length === 0) {
-        const routeIdsFromStop = getRoutesByStopId(fromStop.id);
-        const routeIdsToStop = getRoutesByStopId(toStop.id);
-        
-        // Find common routes
-        const commonRouteIds = routeIdsFromStop.filter(routeId => 
-          routeIdsToStop.includes(routeId)
-        );
-        
-        if (commonRouteIds.length > 0) {
-          const route = getRouteById(commonRouteIds[0]);
-          if (route) {
-            const fromIndex = route.stops.findIndex(s => s.id === fromStop.id);
-            const toIndex = route.stops.findIndex(s => s.id === toStop.id);
-            
-            if (fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex) {
-              const leg: RouteLeg = {
-                number: route.id,
-                routeId: route.id,
-                routeName: route.name,
-                fromStop: fromStop,
-                toStop: toStop,
-                stops: route.stops.slice(fromIndex, toIndex + 1),
-                estimatedTime: Math.abs(toIndex - fromIndex) * 2, // 2 minutes per stop
-                distance: Math.abs(toIndex - fromIndex) * 0.5, // 0.5 km per stop
-              };
-              
-              options.push({
-                legs: [leg],
-                totalTime: leg.estimatedTime,
-                transfers: 0,
-                walkingTime: 0,
-                totalDistance: leg.distance,
-                confidence: 0.8,
-                score: {
-                  timeScore: 80,
-                  transferScore: 100,
-                  reliabilityScore: 80,
-                  comfortScore: 70,
-                  accessibilityScore: 60,
-                  totalScore: 78,
-                  distanceScore: 70,
-                  factors: {
-                    time: leg.estimatedTime,
-                    transfers: 0,
-                    distance: leg.distance,
-                    walkingTime: 0,
-                    routeCount: 1,
-                    confidence: 0.8
-                  }
-                },
-                id: '',
-                routeType: 'direct'
-              });
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Simple route finding error:', error);
-    }
-    
-    return options;
   }
 
   // Enhanced multi-algorithm route finding - SHORTEST PATH FIRST
@@ -1431,10 +1077,6 @@ export class RoutePlanner {
 
   // Find routes with transfers using enhanced BFS approach
   private findRoutesWithTransfers(fromStop: BusStop, toStop: BusStop, maxTransfers: number): RouteOption[] {
-    const startTime = Date.now();
-    const maxSearchTime = 1500; // Reduced to 1.5 seconds timeout for transfer routes
-    const maxQueueSize = 500; // Reduced queue size to prevent memory issues
-    
     const options: RouteOption[] = [];
     const visited = new Set<string>();
     const queue: Array<{
@@ -1463,12 +1105,6 @@ export class RoutePlanner {
     }
 
     while (queue.length > 0) {
-      // Check timeout and queue size limits
-      if (Date.now() - startTime > maxSearchTime || queue.length > maxQueueSize) {
-        console.log('BFS search timeout or queue limit reached');
-        break;
-      }
-      
       const current = queue.shift()!;
       const stateKey = `${current.currentStop.id}-${current.transfers}-${current.currentRouteId}`;
 
