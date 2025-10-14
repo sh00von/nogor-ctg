@@ -1,6 +1,6 @@
 'use client'
 import { Bus, MapPin, Search, Navigation, Clock, Users, ArrowRight, Route as RouteIcon, ChevronsUpDown, X, Zap, Target, Sun } from 'lucide-react';
-import { getAllRoutes, BusRoute } from '@/lib/bus-routes';
+import { getAllRoutes, getRegularBusRoutes, lagunaRoutes, BusRoute } from '@/lib/bus-routes';
 import { RoutePlanner, RoutePlan } from '@/lib/route-planner';
 import toast, { Toaster } from 'react-hot-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,16 +27,46 @@ export default function Home() {
   const [isPlanning, setIsPlanning] = useState(false);
   
   // Mobile tab state
-  const [activeTab, setActiveTab] = useState<'routes' | 'weather' | 'guide'>('routes');
+  const [activeTab, setActiveTab] = useState<'plan' | 'routes' | 'more'>('plan');
   
-  // Register service worker
-  useServiceWorker();
+  // Helper function to get route icon
+  const getRouteIcon = (route: BusRoute) => {
+    if (route.number.startsWith('Laguna')) {
+      return '🚌'; // Laguna service icon
+    }
+    return '🚌'; // Regular bus icon
+  };
+
+  // Helper function to get route color
+  const getRouteColor = (route: BusRoute) => {
+    if (route.number.startsWith('Laguna')) {
+      return 'bg-primary'; // Laguna uses primary color
+    }
+    return 'bg-primary'; // Regular buses use primary color
+  };
+
+  // Skeleton component for loading states
+  const RouteSkeleton = () => (
+    <div className="bg-card rounded-2xl p-4 shadow-sm border animate-pulse">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 bg-muted rounded-lg"></div>
+        <div className="flex-1">
+          <div className="h-4 bg-muted rounded mb-2 w-3/4"></div>
+          <div className="h-3 bg-muted rounded mb-2 w-1/2"></div>
+          <div className="flex gap-3">
+            <div className="h-3 bg-muted rounded w-16"></div>
+            <div className="h-3 bg-muted rounded w-16"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   
   
-  const routes = useMemo(() => getAllRoutes(), []);
+  const routes = useMemo(() => getRegularBusRoutes(), []);
   
-  // Initialize route planner
-  const routePlanner = useMemo(() => new RoutePlanner(routes), [routes]);
+  // Initialize route planner with all routes (including Laguna)
+  const routePlanner = useMemo(() => new RoutePlanner(getAllRoutes()), []);
 
   // Get all unique English stop names for combobox
   const allStops = useMemo(() => {
@@ -299,41 +329,6 @@ export default function Home() {
                   {/* Weather Widget */}
                   <WeatherWidget />
 
-                  {/* Quick Route Suggestions */}
-                  {fromValue && routesFromLocation.length > 0 && (
-                    <div className="bg-card rounded-2xl p-6 shadow-sm border">
-                      <div className="flex items-center gap-3 mb-4">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        <div>
-                          <h3 className="font-semibold">Quick Routes</h3>
-                          <p className="text-sm text-muted-foreground">
-                            From {fromValue}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                        {routesFromLocation.slice(0, 8).map((route) => (
-                          <button
-                            key={route.id}
-                            onClick={() => handleRouteClick(route)}
-                            className="px-4 py-3 bg-secondary hover:bg-secondary/80 border rounded-lg text-sm font-medium transition-colors text-left"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-sm font-bold">
-                                {route.number}
-                              </div>
-                              <div>
-                                <div className="font-medium">{route.name}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {route.stops.length} Stops
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -376,23 +371,89 @@ export default function Home() {
                           </div>
                         </div>
 
-                        <div className="space-y-3">
-                          {routePlan.bestOption.legs.map((leg, index) => {
+                        {/* Step-by-Step Instructions */}
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Navigation className="w-5 h-5 text-primary" />
+                            <span className="font-semibold text-base">Step-by-Step Guide</span>
+                          </div>
+                          
+                          {routePlan.bestOption.legs.map((leg, legIndex) => {
                             const routeObj = routes.find(r => r.id === leg.routeId);
-                            const routeNumber = routeObj ? routeObj.number : leg.routeName;
+                            const routeName = routeObj ? routeObj.name : leg.routeName;
+                            const isLastLeg = legIndex === (routePlan.bestOption?.legs.length || 0) - 1;
+                            
                             return (
-                              <div key={index} className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-sm">
-                                  {routeNumber}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="font-medium">
-                                    {leg.fromStop.name} → {leg.toStop.name}
+                              <div key={legIndex} className="relative">
+                                {/* Step Number */}
+                                <div className="flex items-start gap-4">
+                                  <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-bold">
+                                    {legIndex + 1}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {Math.round(leg.estimatedTime)} min • {formatDistance(leg.distance)} km
+                                  
+                                  <div className="flex-1 space-y-3">
+                                    {/* Route Card */}
+                                    <div className="bg-blue-50 dark:bg-blue-950/20 p-4 border-l-4 border-blue-500">
+                                      <div className="flex items-center gap-3 mb-3">
+                                        <span className="text-xl">🚌</span>
+                                        <div className="font-semibold text-base">{routeName}</div>
+                                        <Badge variant="secondary" className="text-sm">
+                                          {Math.round(leg.estimatedTime)} min
+                                        </Badge>
+                                      </div>
+                                      
+                                      {/* Boarding Instructions */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-3 text-base">
+                                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                          <span className="font-medium">Board at:</span>
+                                          <span className="font-semibold text-primary text-lg">{leg.fromStop.name}</span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-3 text-base">
+                                          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                          <span className="font-medium">Get off at:</span>
+                                          <span className="font-semibold text-primary text-lg">{leg.toStop.name}</span>
+                                        </div>
+                                        
+                                        <div className="text-sm text-muted-foreground mt-2">
+                                          Distance: {formatDistance(leg.distance)} km
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Transfer Instructions */}
+                                    {!isLastLeg && (
+                                      <div className="bg-orange-50 dark:bg-orange-950/20 p-4 border-l-4 border-orange-500">
+                                        <div className="flex items-center gap-3 mb-2">
+                                          <ArrowRight className="w-5 h-5 text-orange-600" />
+                                          <span className="font-semibold text-base text-orange-600 dark:text-orange-400">Transfer Required</span>
+                                        </div>
+                                        <div className="text-sm text-orange-600 dark:text-orange-400">
+                                          Walk to the next bus stop and wait for your connecting bus
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Final Destination */}
+                                    {isLastLeg && (
+                                      <div className="bg-green-50 dark:bg-green-950/20 p-4 border-l-4 border-green-500">
+                                        <div className="flex items-center gap-3 mb-2">
+                                          <Target className="w-5 h-5 text-green-600" />
+                                          <span className="font-semibold text-base text-green-600 dark:text-green-400">You've Arrived!</span>
+                                        </div>
+                                        <div className="text-sm text-green-600 dark:text-green-400">
+                                          You have reached your destination
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
+                                
+                                {/* Connecting Line */}
+                                {!isLastLeg && (
+                                  <div className="absolute left-4 top-10 w-0.5 h-8 bg-muted"></div>
+                                )}
                               </div>
                             );
                           })}
@@ -401,48 +462,118 @@ export default function Home() {
 
                       {/* Other Route Options */}
                       {routePlan.options.length > 1 && (
-                        <div className="space-y-4">
-                          <h4 className="font-medium">Other Options</h4>
-                          {routePlan.options.slice(1, 4).map((option, index) => (
-                            <div key={option.id} className="bg-card rounded-xl p-4 border">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm bg-muted">
-                                    {index + 2}
-                                  </div>
-                                  <Badge variant="outline">
-                                    {Math.round(option.confidence * 100)}%
-                                  </Badge>
-                                </div>
-                                <div className="text-right">
-                                  <div className="font-bold">
-                                    {Math.round(option.totalTime)} min
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {option.transfers} transfers
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="text-xs text-muted-foreground mb-1">Each option shows the bus routes and stops for your journey.</div>
-                                {option.legs.map((leg, legIndex) => {
-                                  // Find the route number from the routes array using leg.routeId
-                                  const routeObj = routes.find(r => r.id === leg.routeId);
-                                  const routeNumber = routeObj ? routeObj.number : leg.routeName;
-                                  return (
-                                    <div key={legIndex} className="flex items-center gap-3 text-sm">
-                                      <div className="w-6 h-6 bg-primary rounded flex items-center justify-center text-xs font-bold text-primary-foreground">
-                                        {routeNumber}
+                        <div className="space-y-6">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-6 bg-primary"></div>
+                            <h4 className="font-semibold text-lg">Other Options</h4>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            {routePlan.options.slice(1, 4).map((option, index) => (
+                              <div key={option.id} className="bg-card border border-border/50">
+                                <div className="p-6">
+                                  <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-sm">
+                                        {index + 2}
                                       </div>
-                                      <span>
-                                        {leg.fromStop.name} → {leg.toStop.name}
-                                      </span>
+                                      <div>
+                                        <div className="text-2xl font-bold text-foreground">
+                                          {Math.round(option.totalTime)} min
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                          {option.transfers} transfers • {formatDistance(option.totalDistance)} km
+                                        </div>
+                                      </div>
                                     </div>
-                                  );
-                                })}
+                                    <Badge variant="outline" className="text-sm">
+                                      {Math.round(option.confidence * 100)}%
+                                    </Badge>
+                                  </div>
+
+                                  <div className="space-y-4">
+                                    {option.legs.map((leg, legIndex) => {
+                                      const routeObj = routes.find(r => r.id === leg.routeId);
+                                      const routeName = routeObj ? routeObj.name : leg.routeName;
+                                      const isLastLeg = legIndex === option.legs.length - 1;
+                                      
+                                      return (
+                                        <div key={legIndex} className="relative">
+                                          <div className="flex items-start gap-4">
+                                            <div className="flex-shrink-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold">
+                                              {legIndex + 1}
+                                            </div>
+                                            
+                                            <div className="flex-1 space-y-3">
+                                              {/* Route Card */}
+                                              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 border-l-4 border-blue-500">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                  <span className="text-lg">🚌</span>
+                                                  <div className="font-semibold text-base">{routeName}</div>
+                                                  <Badge variant="secondary" className="text-sm">
+                                                    {Math.round(leg.estimatedTime)} min
+                                                  </Badge>
+                                                </div>
+                                                
+                                                <div className="space-y-2">
+                                                  <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                    <span className="font-medium">Board:</span>
+                                                    <span className="font-semibold text-primary">{leg.fromStop.name}</span>
+                                                  </div>
+                                                  
+                                                  <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                                    <span className="font-medium">Get off:</span>
+                                                    <span className="font-semibold text-primary">{leg.toStop.name}</span>
+                                                  </div>
+                                                  
+                                                  <div className="text-xs text-muted-foreground">
+                                                    Distance: {formatDistance(leg.distance)} km
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              
+                                              {/* Transfer Instructions */}
+                                              {!isLastLeg && (
+                                                <div className="bg-orange-50 dark:bg-orange-950/20 p-4 border-l-4 border-orange-500">
+                                                  <div className="flex items-center gap-3 mb-2">
+                                                    <ArrowRight className="w-4 h-4 text-orange-600" />
+                                                    <span className="font-semibold text-sm text-orange-600 dark:text-orange-400">Transfer Required</span>
+                                                  </div>
+                                                  <div className="text-sm text-orange-600 dark:text-orange-400">
+                                                    Walk to the next bus stop and wait for your connecting bus
+                                                  </div>
+                                                </div>
+                                              )}
+                                              
+                                              {/* Final Destination */}
+                                              {isLastLeg && (
+                                                <div className="bg-green-50 dark:bg-green-950/20 p-4 border-l-4 border-green-500">
+                                                  <div className="flex items-center gap-3 mb-2">
+                                                    <Target className="w-4 h-4 text-green-600" />
+                                                    <span className="font-semibold text-sm text-green-600 dark:text-green-400">You've Arrived!</span>
+                                                  </div>
+                                                  <div className="text-sm text-green-600 dark:text-green-400">
+                                                    You have reached your destination
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Connecting Line */}
+                                          {!isLastLeg && (
+                                            <div className="absolute left-3 top-8 w-0.5 h-8 bg-muted"></div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -462,30 +593,87 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {filteredRoutes.map((route) => (
                         <div
                           key={route.id}
-                          className="cursor-pointer transition-all duration-300 group bg-card rounded-xl p-4 border hover:shadow-md hover:border-primary/20"
+                          className="cursor-pointer transition-all duration-300 group bg-card border border-border/50 hover:shadow-md hover:border-primary/20"
                           onClick={() => handleRouteClick(route)}
                         >
-                          <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg">
-                              {route.number}
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-semibold mb-1">{route.name}</div>
-                              <div className="text-sm text-muted-foreground mb-2">
-                                {route.stops[0]?.name} → {route.stops[route.stops.length - 1]?.name}
+                          <div className="p-6">
+                            <div className="flex items-start gap-4">
+                              <div className={`w-12 h-12 ${getRouteColor(route)} rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg`}>
+                                {route.number}
                               </div>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" />
-                                  {route.stops.length} stops
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-lg">{getRouteIcon(route)}</span>
+                                  <div className="font-semibold text-base">{route.name}</div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {Math.round(route.stops.length * 2.5)} minutes
+                                <div className="text-sm text-muted-foreground mb-3">
+                                  {route.stops[0]?.name} → {route.stops[route.stops.length - 1]?.name}
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {route.stops.length} stops
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {Math.round(route.stops.length * 2.5)} minutes
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Laguna Service Routes */}
+                  <div className="bg-card rounded-2xl p-6 shadow-sm border">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <RouteIcon className="w-5 h-5 text-primary" />
+                </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Laguna Service Routes</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {lagunaRoutes.length} City circular routes
+                        </p>
+              </div>
+            </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {lagunaRoutes.map((route) => (
+                        <div
+                          key={route.id}
+                          className="cursor-pointer transition-all duration-300 group bg-card border border-border/50 hover:shadow-md hover:border-primary/20"
+                          onClick={() => handleRouteClick(route)}
+                        >
+                          <div className="p-6">
+                            <div className="flex items-start gap-4">
+                              <div className={`w-12 h-12 ${getRouteColor(route)} rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg`}>
+                                L
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-lg">{getRouteIcon(route)}</span>
+                                  <div className="font-semibold text-base text-foreground">{route.name}</div>
+                                </div>
+                                <div className="text-sm text-muted-foreground mb-3">
+                                  {route.stops[0]?.name} → {route.stops[route.stops.length - 1]?.name}
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <Users className="w-3 h-3" />
+                                    {route.totalStops} stops
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {Math.round(route.stops.length * 2.5)} minutes
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -506,9 +694,9 @@ export default function Home() {
         <div className="px-4 py-4 pb-20">
           
           {/* Mobile Tab Content */}
-          {activeTab === 'routes' && (
+          {activeTab === 'plan' && (
             <>
-              {/* Quick Search Bar - Native Style */}
+          {/* Quick Search Bar - Native Style */}
           <div className="mb-6">
             <div className="bg-card rounded-2xl p-4 shadow-sm border">
               <div className="flex items-center gap-3 mb-4">
@@ -597,41 +785,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Quick Route Suggestions */}
-          {fromValue && routesFromLocation.length > 0 && (
-            <div className="mb-8">
-              <Card className="shadow-md">
-                <CardContent className="p-4 md:p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <MapPin className="w-5 h-5 text-primary" />
-                    <div>
-                      <h3 className="font-semibold">Quick Routes</h3>
-                      <p className="text-sm text-muted-foreground">
-                        From {fromValue}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2">
-                    {routesFromLocation.slice(0, 6).map((route) => (
-                      <button
-                        key={route.id}
-                        onClick={() => handleRouteClick(route)}
-                        className="px-3 py-2 bg-secondary hover:bg-secondary/80 border rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-xs font-bold">
-                            {route.number}
-                          </div>
-                          <span>{route.name}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
 
           {/* Mobile App Route Results */}
           {routePlan && routePlan.options.length > 0 && routePlan.bestOption && (
@@ -670,23 +823,89 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    {routePlan.bestOption.legs.map((leg, index) => {
+                  {/* Step-by-Step Instructions */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Navigation className="w-4 h-4 text-primary" />
+                      <span className="font-medium text-sm">Step-by-Step Guide</span>
+                    </div>
+                    
+                    {routePlan.bestOption.legs.map((leg, legIndex) => {
                       const routeObj = routes.find(r => r.id === leg.routeId);
-                      const routeNumber = routeObj ? routeObj.number : leg.routeName;
+                      const routeName = routeObj ? routeObj.name : leg.routeName;
+                      const isLastLeg = legIndex === (routePlan.bestOption?.legs.length || 0) - 1;
+                      
                       return (
-                        <div key={index} className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-sm">
-                            {routeNumber}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium">
-                              {leg.fromStop.name} → {leg.toStop.name}
+                        <div key={legIndex} className="relative">
+                          {/* Step Number */}
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold">
+                              {legIndex + 1}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {Math.round(leg.estimatedTime)} min • {formatDistance(leg.distance)} km
+                            
+                            <div className="flex-1 space-y-2">
+                              {/* Route Card */}
+                              <div className="bg-blue-50 dark:bg-blue-950/20 p-3 border-l-4 border-blue-500">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-lg">🚌</span>
+                                  <div className="font-semibold text-sm">{routeName}</div>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {Math.round(leg.estimatedTime)} min
+                                  </Badge>
+                                </div>
+                                
+                                {/* Boarding Instructions */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="font-medium">Board at:</span>
+                                    <span className="font-semibold text-primary">{leg.fromStop.name}</span>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                    <span className="font-medium">Get off at:</span>
+                                    <span className="font-semibold text-primary">{leg.toStop.name}</span>
+                                  </div>
+                                  
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Distance: {formatDistance(leg.distance)} km
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Transfer Instructions */}
+                              {!isLastLeg && (
+                                <div className="bg-orange-50 dark:bg-orange-950/20 p-3 border-l-4 border-orange-500">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <ArrowRight className="w-4 h-4 text-orange-600" />
+                                    <span className="font-medium text-sm text-orange-600 dark:text-orange-400">Transfer Required</span>
+                                  </div>
+                                  <div className="text-xs text-orange-600 dark:text-orange-400">
+                                    Walk to the next bus stop and wait for your connecting bus
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Final Destination */}
+                              {isLastLeg && (
+                                <div className="bg-green-50 dark:bg-green-950/20 p-3 border-l-4 border-green-500">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Target className="w-4 h-4 text-green-600" />
+                                    <span className="font-medium text-sm text-green-600 dark:text-green-400">You've Arrived!</span>
+                                  </div>
+                                  <div className="text-xs text-green-600 dark:text-green-400">
+                                    You have reached your destination
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
+                          
+                          {/* Connecting Line */}
+                          {!isLastLeg && (
+                            <div className="absolute left-3 top-8 w-0.5 h-6 bg-muted"></div>
+                          )}
                         </div>
                       );
                     })}
@@ -694,115 +913,130 @@ export default function Home() {
                 </div>
 
                 {/* All Route Options */}
-                <div className="space-y-4">
-                  {routePlan.options.slice(0, 3).map((option, index) => (
-                    <div key={option.id}>
-                      <div className={`bg-card rounded-xl p-4 border ${index === 0 ? 'ring-2 ring-primary' : ''}`}>
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
-                              index === 0 ? 'bg-primary' : 'bg-muted'
-                            }`}>
-                              {index + 1}
-                            </div>
-                            <div>
-                              <div className="font-semibold">
-                                {Math.round(option.totalTime)} min
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 bg-primary"></div>
+                    <h4 className="font-semibold text-base">Other Options</h4>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {routePlan.options.slice(1, 4).map((option, index) => (
+                      <div key={option.id} className="bg-card border border-border/50">
+                        <div className="p-4">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-sm">
+                                {index + 2}
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                {option.transfers} transfers • {formatDistance(option.totalDistance)} km
+                              <div>
+                                <div className="text-xl font-bold text-foreground">
+                                  {Math.round(option.totalTime)} min
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {option.transfers} transfers • {formatDistance(option.totalDistance)} km
+                                </div>
                               </div>
                             </div>
+                            <Badge variant="outline" className="text-xs">
+                              {Math.round(option.confidence * 100)}%
+                            </Badge>
                           </div>
-                          <Badge variant="outline">
-                            {Math.round(option.confidence * 100)}%
-                          </Badge>
-                        </div>
 
-                        {/* Route Details */}
-                        <div className="space-y-2">
-                          {option.legs.map((leg, legIndex) => {
-                            // Find the route number from the routes array using leg.routeId
-                            const routeObj = routes.find(r => r.id === leg.routeId);
-                            const routeNumber = routeObj ? routeObj.number : leg.routeName;
-                            return (
-                              <div key={legIndex} className="flex items-center gap-3 text-sm">
-                                <div className="w-6 h-6 bg-primary rounded flex items-center justify-center text-xs font-bold text-primary-foreground">
-                                  {routeNumber}
-                                </div>
-                                <div className="flex-1">
-                                  <div>
-                                    {leg.fromStop.name} → {leg.toStop.name}
+                          <div className="space-y-4">
+                            {option.legs.map((leg, legIndex) => {
+                              const routeObj = routes.find(r => r.id === leg.routeId);
+                              const routeName = routeObj ? routeObj.name : leg.routeName;
+                              const isLastLeg = legIndex === option.legs.length - 1;
+                              
+                              return (
+                                <div key={legIndex} className="relative">
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex-shrink-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold">
+                                      {legIndex + 1}
+                                    </div>
+                                    
+                                    <div className="flex-1 space-y-2">
+                                      {/* Route Card */}
+                                      <div className="bg-blue-50 dark:bg-blue-950/20 p-3 border-l-4 border-blue-500">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <span className="text-lg">🚌</span>
+                                          <div className="font-semibold text-sm">{routeName}</div>
+                                          <Badge variant="secondary" className="text-xs">
+                                            {Math.round(leg.estimatedTime)} min
+                                          </Badge>
+                                        </div>
+                                        
+                                        <div className="space-y-1">
+                                          <div className="flex items-center gap-2 text-sm">
+                                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <span className="font-medium">Board:</span>
+                                            <span className="font-semibold text-primary">{leg.fromStop.name}</span>
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-2 text-sm">
+                                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                            <span className="font-medium">Get off:</span>
+                                            <span className="font-semibold text-primary">{leg.toStop.name}</span>
+                                          </div>
+                                          
+                                          <div className="text-xs text-muted-foreground">
+                                            Distance: {formatDistance(leg.distance)} km
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Transfer Instructions */}
+                                      {!isLastLeg && (
+                                        <div className="bg-orange-50 dark:bg-orange-950/20 p-3 border-l-4 border-orange-500">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <ArrowRight className="w-4 h-4 text-orange-600" />
+                                            <span className="font-medium text-sm text-orange-600 dark:text-orange-400">Transfer Required</span>
+                                          </div>
+                                          <div className="text-xs text-orange-600 dark:text-orange-400">
+                                            Walk to the next bus stop and wait for your connecting bus
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Final Destination */}
+                                      {isLastLeg && (
+                                        <div className="bg-green-50 dark:bg-green-950/20 p-3 border-l-4 border-green-500">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <Target className="w-4 h-4 text-green-600" />
+                                            <span className="font-medium text-sm text-green-600 dark:text-green-400">You've Arrived!</span>
+                                          </div>
+                                          <div className="text-xs text-green-600 dark:text-green-400">
+                                            You have reached your destination
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {Math.round(leg.estimatedTime)} min • {formatDistance(leg.distance)} km
-                                  </div>
+                                  
+                                  {/* Connecting Line */}
+                                  {!isLastLeg && (
+                                    <div className="absolute left-3 top-8 w-0.5 h-6 bg-muted"></div>
+                                  )}
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* All Routes Section */}
-          <div className="bg-card rounded-2xl p-4 shadow-sm border">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                <RouteIcon className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">All Bus Routes</h3>
-                <p className="text-sm text-muted-foreground">
-                  {routes.length} BRTA approved routes
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-              {filteredRoutes.map((route) => (
-                  <div key={route.id}>
-                    <div 
-                      className="cursor-pointer transition-all duration-300 group bg-card rounded-2xl p-4 shadow-sm border hover:shadow-md active:scale-95"
-                      onClick={() => handleRouteClick(route)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg">
-                          {route.number}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold mb-1">{route.name}</div>
-                          <div className="text-sm text-muted-foreground mb-2">
-                            {route.stops[0]?.name} → {route.stops[route.stops.length - 1]?.name}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {route.stops.length} Stops
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {Math.round(route.stops.length * 2.5)} min
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
             </>
           )}
 
-          {/* Weather Tab Content */}
-          {activeTab === 'weather' && (
+          {/* More Tab Content */}
+          {activeTab === 'more' && (
             <div className="space-y-6">
+              {/* Weather Widget */}
               <WeatherWidget />
               
               {/* Weather Tips */}
@@ -814,83 +1048,169 @@ export default function Home() {
                   <div>
                     <h3 className="font-semibold">Weather Tips</h3>
                     <p className="text-sm text-muted-foreground">
-                      Travel advice based on current conditions
+                      Travel recommendations based on weather
                     </p>
                   </div>
                 </div>
                 
                 <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400 dark:bg-blue-950 dark:border-blue-600">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">☔</span>
-                      <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                        Rainy weather - Consider routes with covered stops
-                      </p>
-                    </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium mb-1">Hot Weather</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Stay hydrated and wear light clothing. Consider traveling during cooler hours.
+                    </p>
                   </div>
                   
-                  <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-400 dark:bg-orange-950 dark:border-orange-600">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🌡️</span>
-                      <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                        Hot weather - Choose routes with air-conditioned buses
-                      </p>
-                    </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium mb-1">Rainy Weather</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Carry an umbrella and allow extra travel time. Buses may be delayed.
+                    </p>
                   </div>
                   
-                  <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-400 dark:bg-green-950 dark:border-green-600">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">✅</span>
-                      <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                        Good weather for travel - Enjoy your journey!
-                      </p>
-                    </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium mb-1">Good Weather</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Perfect conditions for travel! Enjoy your journey.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* App Info */}
+              <div className="bg-card rounded-2xl p-4 shadow-sm border">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Bus className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">About Bus Tracker</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Chittagong's comprehensive bus route planner
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Total Routes</span>
+                    <span className="font-medium">{routes.length + lagunaRoutes.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Regular Buses</span>
+                    <span className="font-medium">{routes.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Laguna Services</span>
+                    <span className="font-medium">{lagunaRoutes.length}</span>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Guide Tab Content */}
-          {activeTab === 'guide' && (
+          {/* Routes Tab Content */}
+          {activeTab === 'routes' && (
             <div className="space-y-6">
+              {/* Regular Bus Routes */}
               <div className="bg-card rounded-2xl p-4 shadow-sm border">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Navigation className="w-4 h-4 text-primary" />
+                    <Bus className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">Travel Guide</h3>
+                    <h3 className="font-semibold">All Bus Routes</h3>
                     <p className="text-sm text-muted-foreground">
-                      Tips for using Chittagong bus system
+                      {routes.length} BRTA approved routes
                     </p>
                   </div>
                 </div>
                 
-                <div className="space-y-4">
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <h4 className="font-medium mb-2">🚌 How to Use Bus Routes</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  {filteredRoutes.map((route) => (
+                    <div key={route.id}>
+                      <div 
+                        className="cursor-pointer transition-all duration-300 group bg-card rounded-2xl p-4 shadow-sm border hover:shadow-md active:scale-95"
+                        onClick={() => handleRouteClick(route)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 ${getRouteColor(route)} rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg`}>
+                            {route.number}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">{getRouteIcon(route)}</span>
+                              <div className="font-semibold">{route.name}</div>
+                            </div>
+                            <div className="text-sm text-muted-foreground mb-2">
+                              {route.stops[0]?.name} → {route.stops[route.stops.length - 1]?.name}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {route.stops.length} Stops
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {Math.round(route.stops.length * 2.5)} min
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Laguna Service Routes */}
+              <div className="bg-card rounded-2xl p-4 shadow-sm border">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <RouteIcon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Laguna Service Routes</h3>
                     <p className="text-sm text-muted-foreground">
-                      Select your starting point and destination to find the best bus routes. 
-                      The system will show you direct routes and transfer options.
+                      {lagunaRoutes.length} City circular routes
                     </p>
                   </div>
-                  
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <h4 className="font-medium mb-2">🎫 Fare Information</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Bus fares vary by route and distance. Most routes cost between 10-25 BDT. 
-                      Have exact change ready when boarding.
-                    </p>
-                  </div>
-                  
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <h4 className="font-medium mb-2">⏰ Operating Hours</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Buses typically run from 6:00 AM to 10:00 PM. 
-                      Frequency varies by route and time of day.
-                    </p>
-                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  {lagunaRoutes.map((route) => (
+                    <div key={route.id}>
+                      <div 
+                        className="cursor-pointer transition-all duration-300 group bg-card rounded-2xl p-4 shadow-sm border hover:shadow-md active:scale-95"
+                        onClick={() => handleRouteClick(route)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 ${getRouteColor(route)} rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg`}>
+                            L
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">{getRouteIcon(route)}</span>
+                              <div className="font-semibold text-foreground">{route.name}</div>
+                            </div>
+                            <div className="text-sm text-muted-foreground mb-2">
+                              {route.stops[0]?.name} → {route.stops[route.stops.length - 1]?.name}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {route.stops.length} Stops
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {Math.round(route.stops.length * 2.5)} min
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1045,25 +1365,25 @@ export default function Home() {
                   }
                   
                   return filteredStops.map((stop) => (
-                    <div
-                      key={stop}
-                      className="cursor-pointer p-4 border rounded-lg hover:bg-muted transition-colors"
-                      onClick={() => handleLocationSelect(stop, activePopover)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                          <MapPin className="w-4 h-4 text-primary" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{stop}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {routes.filter(route => 
-                              route.stops.some(s => s.name === stop)
-                            ).length} routes available
-                          </div>
+                  <div
+                    key={stop}
+                    className="cursor-pointer p-4 border rounded-lg hover:bg-muted transition-colors"
+                    onClick={() => handleLocationSelect(stop, activePopover)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                        <MapPin className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-medium">{stop}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {routes.filter(route => 
+                            route.stops.some(s => s.name === stop)
+                          ).length} routes available
                         </div>
                       </div>
                     </div>
+                  </div>
                   ));
                 })()}
               </div>
@@ -1077,6 +1397,21 @@ export default function Home() {
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t safe-area-bottom z-50 lg:hidden">
         <div className="flex items-center justify-around py-2 px-4">
           <Button 
+            variant={activeTab === 'plan' ? 'default' : 'ghost'} 
+            size="sm" 
+            className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl"
+            onClick={() => setActiveTab('plan')}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+              activeTab === 'plan' ? 'bg-primary-foreground' : 'bg-primary/10'
+            }`}>
+              <Search className={`w-4 h-4 ${
+                activeTab === 'plan' ? 'text-primary' : 'text-primary'
+              }`} />
+            </div>
+            <span className="text-xs">Plan</span>
+          </Button>
+          <Button 
             variant={activeTab === 'routes' ? 'default' : 'ghost'} 
             size="sm" 
             className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl"
@@ -1085,41 +1420,26 @@ export default function Home() {
             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
               activeTab === 'routes' ? 'bg-primary-foreground' : 'bg-primary/10'
             }`}>
-              <RouteIcon className={`w-4 h-4 ${
+              <Bus className={`w-4 h-4 ${
                 activeTab === 'routes' ? 'text-primary' : 'text-primary'
               }`} />
             </div>
             <span className="text-xs">Routes</span>
           </Button>
           <Button 
-            variant={activeTab === 'weather' ? 'default' : 'ghost'} 
+            variant={activeTab === 'more' ? 'default' : 'ghost'} 
             size="sm" 
             className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl"
-            onClick={() => setActiveTab('weather')}
+            onClick={() => setActiveTab('more')}
           >
             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              activeTab === 'weather' ? 'bg-primary-foreground' : 'bg-primary/10'
+              activeTab === 'more' ? 'bg-primary-foreground' : 'bg-primary/10'
             }`}>
               <Sun className={`w-4 h-4 ${
-                activeTab === 'weather' ? 'text-primary' : 'text-primary'
+                activeTab === 'more' ? 'text-primary' : 'text-primary'
               }`} />
             </div>
-            <span className="text-xs">Weather</span>
-          </Button>
-          <Button 
-            variant={activeTab === 'guide' ? 'default' : 'ghost'} 
-            size="sm" 
-            className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl"
-            onClick={() => setActiveTab('guide')}
-          >
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              activeTab === 'guide' ? 'bg-primary-foreground' : 'bg-primary/10'
-            }`}>
-              <Navigation className={`w-4 h-4 ${
-                activeTab === 'guide' ? 'text-primary' : 'text-primary'
-              }`} />
-            </div>
-            <span className="text-xs">Guide</span>
+            <span className="text-xs">More</span>
           </Button>
         </div>
       </div>

@@ -301,6 +301,45 @@ export const busRoutes: BusRoute[] = [
   }
 ];
 
+// Laguna Service Routes (City Circular Routes)
+export const lagunaRoutes: BusRoute[] = [
+  {
+    id: 12,
+    name: "Laguna Service 1",
+    number: "Laguna -1",
+    color: "#8B5CF6",
+    description: "Oxygen to 2no Gate via Bayezid, Rubi Gate, Shershah Colony (City Circular Route)",
+    firstStop: 27,
+    lastStop: 20,
+    totalStops: 5,
+    stops: [
+      { id: 27, name: "Oxygen" },
+      { id: 67, name: "Bayezid" },
+      { id: 65, name: "Rubi Gate" },
+      { id: 66, name: "Shershah Colony" },
+      { id: 20, name: "2no Gate" }
+    ]
+  },
+  {
+    id: 13,
+    name: "Laguna Service 2",
+    number: "Laguna-2",
+    color: "#8B5CF6",
+    description: "2no Gate to Chawkbazar via Probortok Moor (City Circular Route)",
+    firstStop: 20,
+    lastStop: 8,
+    totalStops: 3,
+    stops: [
+      { id: 20, name: "2no Gate" },
+      { id: 29, name: "Probortok Moor" },
+      { id: 8, name: "Chawkbazar" }
+    ]
+  }
+];
+
+// All Routes Combined (for backward compatibility)
+export const allRoutes: BusRoute[] = [...busRoutes, ...lagunaRoutes];
+
 // Fast lookup maps for O(1) searching
 let routeIndex: RouteIndex | null = null;
 
@@ -313,7 +352,7 @@ function initializeRouteIndex(): RouteIndex {
   const stopNames = new Map<number, string>();
   const routeNames = new Map<number, string>();
 
-  for (const route of busRoutes) {
+  for (const route of allRoutes) {
     routeNames.set(route.id, route.name);
     routeToStops.set(route.id, route.stops.map(stop => stop.id));
     
@@ -363,7 +402,7 @@ export const findStopByName = (name: string): BusStop[] => {
   const searchTerm = name.toLowerCase().trim();
   const results: BusStop[] = [];
   
-  for (const route of busRoutes) {
+  for (const route of allRoutes) {
     for (const stop of route.stops) {
       const stopName = stop.name.toLowerCase();
       if (
@@ -382,18 +421,69 @@ export const findStopByName = (name: string): BusStop[] => {
 // Fast route search by name or number
 export const findRouteByName = (name: string): BusRoute[] => {
   const searchTerm = name.toLowerCase().trim();
-  return busRoutes.filter(route => 
+  return allRoutes.filter(route => 
     route.name.toLowerCase().includes(searchTerm) ||
     route.number.includes(searchTerm)
   );
 };
 
-export const getRouteById = (id: number): BusRoute | undefined => {
-  return busRoutes.find(route => route.id === id);
+// Laguna-specific helper functions
+export const getLagunaRoutesByStopId = (stopId: number): BusRoute[] => {
+  return lagunaRoutes.filter(route => 
+    route.stops.some(stop => stop.id === stopId)
+  );
+};
+
+export const getLagunaRouteById = (routeId: number): BusRoute | undefined => {
+  return lagunaRoutes.find(route => route.id === routeId);
+};
+
+export const getAllLagunaStops = (): BusStop[] => {
+  const stopMap = new Map<number, BusStop>();
+  
+  for (const route of lagunaRoutes) {
+    for (const stop of route.stops) {
+      stopMap.set(stop.id, stop);
+    }
+  }
+  
+  return Array.from(stopMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+};
+
+export const getRegularBusRoutes = (): BusRoute[] => {
+  return busRoutes;
+};
+
+export const isLagunaRoute = (routeId: number): boolean => {
+  return lagunaRoutes.some(route => route.id === routeId);
+};
+
+export const getAllStops = (): BusStop[] => {
+  const stopMap = new Map<number, BusStop>();
+  
+  for (const route of allRoutes) {
+    for (const stop of route.stops) {
+      stopMap.set(stop.id, stop);
+    }
+  }
+  
+  return Array.from(stopMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+};
+
+export const getAllStopNames = (): string[] => {
+  return getAllStops().map(stop => stop.name);
+};
+
+export const getAllRouteNames = (): string[] => {
+  return allRoutes.map(route => route.name);
+};
+
+export const getRouteById = (routeId: number): BusRoute | undefined => {
+  return allRoutes.find(route => route.id === routeId);
 };
 
 export const getAllRoutes = (): BusRoute[] => {
-  return busRoutes;
+  return allRoutes;
 };
 
 // Get route pattern (first to last stop)
