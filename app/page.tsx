@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { useState, useMemo } from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
 import WeatherWidget from '@/components/WeatherWidget';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import { useServiceWorker } from '@/hooks/useServiceWorker';
 
 export default function Home() {
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
@@ -25,6 +27,9 @@ export default function Home() {
   
   // Mobile tab state
   const [activeTab, setActiveTab] = useState<'routes' | 'weather' | 'guide'>('routes');
+  
+  // Register service worker
+  useServiceWorker();
   
   
   const routes = useMemo(() => getAllRoutes(), []);
@@ -1060,6 +1065,9 @@ export default function Home() {
           </Button>
         </div>
       </div>
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }
