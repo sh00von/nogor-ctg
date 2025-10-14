@@ -745,13 +745,173 @@ export class RoutePlanner {
         }
       }
       
+      // If no direct routes found, try to find single-transfer routes
+      if (options.length === 0) {
+        console.log('No direct routes found, looking for single-transfer routes...');
+        
+        // Find intersection points (stops that have routes to both from and to stops)
+        const allStops = this.getAllStops();
+        const intersectionStops = allStops.filter(stop => {
+          const routesFromStop = getRoutesByStopId(stop.id);
+          const routesToStop = getRoutesByStopId(toStop.id);
+          
+          // Check if there's a route from intersection to destination
+          const hasRouteToDestination = routesFromStop.some(routeId => 
+            routesToStop.includes(routeId)
+          );
+          
+          // Check if there's a route from origin to intersection
+          const hasRouteFromOrigin = routeIdsFromStop.some(routeId => {
+            const route = getRouteById(routeId);
+            return route && route.stops.some(s => s.id === stop.id);
+          });
+          
+          return hasRouteFromOrigin && hasRouteToDestination;
+        });
+        
+        console.log(`Found ${intersectionStops.length} intersection stops`);
+        
+        // Try first intersection stop for single transfer
+        if (intersectionStops.length > 0) {
+          const transferStop = intersectionStops[0];
+          console.log(`Trying transfer at ${transferStop.name}`);
+          
+          // Create two-leg route
+          const leg1 = this.createSimpleLeg(fromStop, transferStop, routeIdsFromStop);
+          const leg2 = this.createSimpleLeg(transferStop, toStop, getRoutesByStopId(transferStop.id));
+          
+          if (leg1 && leg2) {
+            options.push({
+              legs: [leg1, leg2],
+              totalTime: leg1.estimatedTime + leg2.estimatedTime + 5, // 5 min transfer time
+              transfers: 1,
+              walkingTime: 5,
+              totalDistance: leg1.distance + leg2.distance,
+              confidence: 0.7,
+              score: {
+                timeScore: 70,
+                transferScore: 80,
+                distanceScore: 70,
+                reliabilityScore: 70,
+                comfortScore: 60,
+                accessibilityScore: 60,
+                totalScore: 68,
+                factors: {
+                  time: leg1.estimatedTime + leg2.estimatedTime + 5,
+                  transfers: 1,
+                  distance: leg1.distance + leg2.distance,
+                  walkingTime: 5,
+                  routeCount: 2,
+                  confidence: 0.7
+                }
+              },
+              id: `ultra-simple-transfer-${transferStop.id}`,
+              routeType: 'transfer'
+            });
+          }
+        }
+      }
+      
       console.log(`Ultra-simple search found ${options.length} routes`);
+      
+      // If still no routes found, create a basic fallback route
+      if (options.length === 0) {
+        console.log('No routes found, creating basic fallback route...');
+        
+        // Create a simple route with estimated time and distance
+        const estimatedTime = 30; // 30 minutes default
+        const estimatedDistance = 10; // 10 km default
+        
+        const fallbackLeg: RouteLeg = {
+          number: 0,
+          routeId: 0,
+          routeName: 'Route Not Available',
+          fromStop: fromStop,
+          toStop: toStop,
+          stops: [fromStop, toStop],
+          estimatedTime: estimatedTime,
+          distance: estimatedDistance,
+        };
+        
+        options.push({
+          legs: [fallbackLeg],
+          totalTime: estimatedTime,
+          transfers: 0,
+          walkingTime: 0,
+          totalDistance: estimatedDistance,
+          confidence: 0.3,
+          score: {
+            timeScore: 30,
+            transferScore: 50,
+            distanceScore: 30,
+            reliabilityScore: 20,
+            comfortScore: 30,
+            accessibilityScore: 30,
+            totalScore: 32,
+            factors: {
+              time: estimatedTime,
+              transfers: 0,
+              distance: estimatedDistance,
+              walkingTime: 0,
+              routeCount: 1,
+              confidence: 0.3
+            }
+          },
+          id: 'fallback-route',
+          routeType: 'fallback'
+        });
+        
+        console.log('Created fallback route');
+      }
       
     } catch (error) {
       console.error('Ultra-simple route finding error:', error);
     }
     
     return options;
+  }
+
+  // Helper method to create a simple leg between two stops
+  private createSimpleLeg(fromStop: BusStop, toStop: BusStop, availableRouteIds: number[]): RouteLeg | null {
+    try {
+      for (const routeId of availableRouteIds.slice(0, 1)) { // Only try first route
+        const route = getRouteById(routeId);
+        if (route) {
+          const fromIndex = route.stops.findIndex(s => s.id === fromStop.id);
+          const toIndex = route.stops.findIndex(s => s.id === toStop.id);
+          
+          if (fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex) {
+            return {
+              number: route.id,
+              routeId: route.id,
+              routeName: route.name,
+              fromStop: fromStop,
+              toStop: toStop,
+              stops: route.stops.slice(fromIndex, toIndex + 1),
+              estimatedTime: Math.abs(toIndex - fromIndex) * 2, // 2 minutes per stop
+              distance: Math.abs(toIndex - fromIndex) * 0.5, // 0.5 km per stop
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error creating simple leg:', error);
+    }
+    
+    return null;
+  }
+
+  // Helper method to get all stops
+  private getAllStops(): BusStop[] {
+    const allStops = new Map<number, BusStop>();
+    
+    for (const route of this.routes) {
+      for (const stop of route.stops) {
+        allStops.set(stop.id, stop);
+      }
+    }
+    
+    return Array.from(allStops.values());
   }
 
   // Simple fallback route finding method
