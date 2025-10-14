@@ -83,23 +83,38 @@ export default function Home() {
     setIsPlanning(true);
     
     try {
-      // Add a timeout to prevent infinite loading
-      const timeoutPromise = new Promise<RoutePlan>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Route planning timeout after 10 seconds'));
-        }, 10000);
+      // Use requestIdleCallback for truly non-blocking execution
+      const plan = await new Promise<RoutePlan>((resolve, reject) => {
+        let timeoutId: NodeJS.Timeout;
+        
+        // Set up timeout
+        timeoutId = setTimeout(() => {
+          console.log('Route planning timeout after 5 seconds');
+          reject(new Error('Route planning timeout after 5 seconds'));
+        }, 5000); // Reduced to 5 seconds
+        
+        // Use requestIdleCallback if available, otherwise setTimeout
+        const executePlanning = () => {
+          try {
+            console.log('Executing route planner...');
+            const result = routePlanner.findRoutes(fromValue, toValue);
+            console.log('Route planner result:', result);
+            clearTimeout(timeoutId);
+            resolve(result);
+          } catch (error) {
+            console.error('Route planner execution error:', error);
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        };
+        
+        if (typeof requestIdleCallback !== 'undefined') {
+          requestIdleCallback(executePlanning, { timeout: 1000 });
+        } else {
+          // Fallback for browsers without requestIdleCallback
+          setTimeout(executePlanning, 0);
+        }
       });
-
-      const planningPromise = new Promise<RoutePlan>((resolve) => {
-        setTimeout(() => {
-          console.log('Executing route planner...');
-          const result = routePlanner.findRoutes(fromValue, toValue);
-          console.log('Route planner result:', result);
-          resolve(result);
-        }, 100); // Small delay to prevent UI blocking
-      });
-
-      const plan = await Promise.race([planningPromise, timeoutPromise]);
       
       console.log('Setting route plan:', plan);
       setRoutePlan(plan);

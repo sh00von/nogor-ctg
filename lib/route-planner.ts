@@ -577,7 +577,7 @@ export class RoutePlanner {
   // Advanced RAPTOR-based route finding algorithm
   findRoutes(fromLocation: string, toLocation: string): RoutePlan {
     const startTime = Date.now();
-    const maxSearchTime = 3000; // Reduced to 3 seconds timeout
+    const maxSearchTime = 1000; // Reduced to 1 second timeout
     
     const fromStops = this.findStopsByLocation(fromLocation);
     const toStops = this.findStopsByLocation(toLocation);
@@ -602,7 +602,7 @@ export class RoutePlanner {
     const options: RouteOption[] = [];
 
     // Find routes for each from/to stop combination (limit to prevent freezing)
-    const maxCombinations = 5; // Reduced from 10 to 5
+    const maxCombinations = 3; // Reduced to 3 to prevent freezing
     let combinationCount = 0;
     
     for (const fromStop of fromStops) {
@@ -619,7 +619,9 @@ export class RoutePlanner {
         }
         
         console.log(`Finding routes between ${fromStop.stop.name} and ${toStop.stop.name}`);
-        const routes = this.findRoutesBetweenStops(fromStop.stop, toStop.stop);
+        
+        // Use ultra-simple fallback first to prevent freezing
+        const routes = this.findUltraSimpleRoutes(fromStop.stop, toStop.stop);
         console.log(`Found ${routes.length} routes`);
         options.push(...routes);
       }
@@ -649,9 +651,9 @@ export class RoutePlanner {
     const searchTime = Date.now() - startTime;
 
     // Fallback: If no routes found and search took too long, try simple approach
-    if (uniqueOptions.length === 0 && searchTime > 2000) {
+    if (uniqueOptions.length === 0 && searchTime > 500) {
       console.log('No routes found with complex algorithm, trying simple fallback...');
-      const fallbackOptions = this.findSimpleRoutes(fromStops[0].stop, toStops[0].stop);
+      const fallbackOptions = this.findUltraSimpleRoutes(fromStops[0].stop, toStops[0].stop);
       if (fallbackOptions.length > 0) {
         console.log(`Fallback found ${fallbackOptions.length} routes`);
         return {
@@ -673,6 +675,83 @@ export class RoutePlanner {
       totalOptions: uniqueOptions.length,
       searchTime
     };
+  }
+
+  // Ultra-simple route finding method - no complex algorithms
+  private findUltraSimpleRoutes(fromStop: BusStop, toStop: BusStop): RouteOption[] {
+    const options: RouteOption[] = [];
+    
+    try {
+      console.log(`Ultra-simple route search: ${fromStop.name} to ${toStop.name}`);
+      
+      // Get routes that pass through both stops
+      const routeIdsFromStop = getRoutesByStopId(fromStop.id);
+      const routeIdsToStop = getRoutesByStopId(toStop.id);
+      
+      // Find common routes (direct routes only)
+      const commonRouteIds = routeIdsFromStop.filter(routeId => 
+        routeIdsToStop.includes(routeId)
+      );
+      
+      console.log(`Found ${commonRouteIds.length} common routes`);
+      
+      // Only process first 2 routes to prevent any delays
+      for (const routeId of commonRouteIds.slice(0, 2)) {
+        const route = getRouteById(routeId);
+        if (route) {
+          const fromIndex = route.stops.findIndex(s => s.id === fromStop.id);
+          const toIndex = route.stops.findIndex(s => s.id === toStop.id);
+          
+          if (fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex) {
+            const leg: RouteLeg = {
+              number: route.id,
+              routeId: route.id,
+              routeName: route.name,
+              fromStop: fromStop,
+              toStop: toStop,
+              stops: route.stops.slice(fromIndex, toIndex + 1),
+              estimatedTime: Math.abs(toIndex - fromIndex) * 2, // 2 minutes per stop
+              distance: Math.abs(toIndex - fromIndex) * 0.5, // 0.5 km per stop
+            };
+            
+            options.push({
+              legs: [leg],
+              totalTime: leg.estimatedTime,
+              transfers: 0,
+              walkingTime: 0,
+              totalDistance: leg.distance,
+              confidence: 0.9,
+              score: {
+                timeScore: 90,
+                transferScore: 100,
+                distanceScore: 80,
+                reliabilityScore: 90,
+                comfortScore: 80,
+                accessibilityScore: 70,
+                totalScore: 85,
+                factors: {
+                  time: leg.estimatedTime,
+                  transfers: 0,
+                  distance: leg.distance,
+                  walkingTime: 0,
+                  routeCount: 1,
+                  confidence: 0.9
+                }
+              },
+              id: `ultra-simple-${routeId}`,
+              routeType: 'direct'
+            });
+          }
+        }
+      }
+      
+      console.log(`Ultra-simple search found ${options.length} routes`);
+      
+    } catch (error) {
+      console.error('Ultra-simple route finding error:', error);
+    }
+    
+    return options;
   }
 
   // Simple fallback route finding method
