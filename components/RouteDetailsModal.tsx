@@ -19,7 +19,7 @@ export default function RouteDetailsModal({ route, onClose }: RouteDetailsModalP
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-primary-foreground/20 rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xl">
-                {route.number}
+                {route.number.startsWith('Leguna') ? 'L' : route.number}
               </div>
               <div>
                 <h2 className="text-xl font-bold text-primary-foreground">

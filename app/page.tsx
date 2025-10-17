@@ -1,6 +1,6 @@
 'use client'
 import { Bus, Route as RouteIcon, Sun } from 'lucide-react';
-import { getAllRoutes, getRegularBusRoutes, lagunaRoutes, BusRoute } from '@/lib/bus-routes';
+import { getAllRoutes, getRegularBusRoutes, legunaRoutes, BusRoute } from '@/lib/bus-routes';
 import { RoutePlanner, RoutePlan } from '@/lib/route-planner';
 import toast, { Toaster } from 'react-hot-toast';
 import { useState, useMemo } from 'react';
@@ -224,15 +224,15 @@ export default function Home() {
                         <RouteIcon className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg">Laguna Service Routes</h3>
+                        <h3 className="font-semibold text-lg">Leguna Service Routes</h3>
                         <p className="text-sm text-muted-foreground">
-                          {lagunaRoutes.length} City circular routes
+                          {legunaRoutes.length} City circular routes
                         </p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {lagunaRoutes.map((route) => (
+                      {legunaRoutes.map((route) => (
                         <RouteCard
                           key={route.id}
                           route={route}
@@ -344,15 +344,15 @@ export default function Home() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Total Routes</span>
-                    <span className="font-medium">{routes.length + lagunaRoutes.length}</span>
+                    <span className="font-medium">{routes.length + legunaRoutes.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Regular Buses</span>
                     <span className="font-medium">{routes.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Laguna Services</span>
-                    <span className="font-medium">{lagunaRoutes.length}</span>
+                    <span className="text-sm">Leguna Services</span>
+                    <span className="font-medium">{legunaRoutes.length}</span>
                   </div>
                 </div>
               </div>
@@ -396,15 +396,15 @@ export default function Home() {
                     <RouteIcon className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">Laguna Service Routes</h3>
+                    <h3 className="font-semibold">Leguna Service Routes</h3>
                     <p className="text-sm text-muted-foreground">
-                      {lagunaRoutes.length} City circular routes
+                      {legunaRoutes.length} City circular routes
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                  {lagunaRoutes.map((route) => (
+                  {legunaRoutes.map((route) => (
                     <div key={route.id}>
                       <RouteCard
                         route={route}

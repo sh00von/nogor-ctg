@@ -10,14 +10,14 @@ interface RouteCardProps {
 
 export default function RouteCard({ route, onClick, isMobile = false }: RouteCardProps) {
   const getRouteIcon = (route: BusRoute) => {
-    if (route.number.startsWith('Laguna')) {
+    if (route.number.startsWith('Leguna')) {
       return '🚌';
     }
     return '🚌';
   };
 
   const getRouteColor = (route: BusRoute) => {
-    if (route.number.startsWith('Laguna')) {
+    if (route.number.startsWith('Leguna')) {
       return 'bg-primary';
     }
     return 'bg-primary';
@@ -41,12 +41,12 @@ export default function RouteCard({ route, onClick, isMobile = false }: RouteCar
       <div className={paddingClass}>
         <div className="flex items-start gap-4">
           <div className={`${iconSize} ${getRouteColor(route)} rounded-lg flex items-center justify-center text-primary-foreground font-bold ${iconTextSize}`}>
-            {route.number.startsWith('Laguna') ? 'L' : route.number}
+            {route.number.startsWith('Leguna') ? 'L' : route.number}
           </div>
           <div className="flex-1">
             <div className={`flex items-center gap-2 ${isMobile ? 'mb-1' : 'mb-2'}`}>
               <span className={routeIconSize}>{getRouteIcon(route)}</span>
-              <div className={`font-semibold ${routeNameSize} ${route.number.startsWith('Laguna') ? 'text-foreground' : ''}`}>
+              <div className={`font-semibold ${routeNameSize} ${route.number.startsWith('Leguna') ? 'text-foreground' : ''}`}>
                 {route.name}
               </div>
             </div>
@@ -60,8 +60,14 @@ export default function RouteCard({ route, onClick, isMobile = false }: RouteCar
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {Math.round(route.stops.length * 2.5)} {isMobile ? 'min' : 'minutes'}
+                {Math.round(route.stops.length * (route.number.startsWith('Leguna') ? 1.5 : 2.5))} {isMobile ? 'min' : 'minutes'}
               </div>
+              {route.number.startsWith('Leguna') && (
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-green-600 font-medium">Fast</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

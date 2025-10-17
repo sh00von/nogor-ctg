@@ -106,7 +106,7 @@ export class RoutePlanner {
           fromStop,
           toStop,
           route,
-          time: this.calculateTravelTime(),
+          time: this.calculateTravelTime(route),
           distance: this.calculateDistance()
         };
 
@@ -121,7 +121,7 @@ export class RoutePlanner {
           fromStop: toStop,
           toStop: fromStop,
           route,
-          time: this.calculateTravelTime(),
+          time: this.calculateTravelTime(route),
           distance: this.calculateDistance()
         };
 
@@ -212,7 +212,7 @@ export class RoutePlanner {
         this.adjacencyList.get(fromStop.id)!.push({
           stop: toStop.id,
           route: route.id,
-          weight: this.calculateTravelTime()
+          weight: this.calculateTravelTime(route)
         });
         
         // Add reverse connection for bidirectional travel
@@ -223,7 +223,7 @@ export class RoutePlanner {
         this.adjacencyList.get(toStop.id)!.push({
           stop: fromStop.id,
           route: route.id,
-          weight: this.calculateTravelTime()
+          weight: this.calculateTravelTime(route)
         });
       }
     }
@@ -457,7 +457,7 @@ export class RoutePlanner {
           fromStop: currentStop,
           toStop: nextStop,
           stops: [currentStop, nextStop],
-          estimatedTime: this.calculateTravelTime(),
+          estimatedTime: this.calculateTravelTime(route),
           distance: this.calculateDistance(),
           number: route.number
         };
@@ -465,7 +465,7 @@ export class RoutePlanner {
         // Extend current leg
         currentLeg.toStop = nextStop;
         currentLeg.stops.push(nextStop);
-        currentLeg.estimatedTime += this.calculateTravelTime();
+        currentLeg.estimatedTime += this.calculateTravelTime(route);
         currentLeg.distance += this.calculateDistance();
       }
     }
@@ -805,7 +805,7 @@ export class RoutePlanner {
       }
     }
     
-    return this.calculateRouteTimeForStops(stops);
+    return this.calculateRouteTimeForStops(stops, route);
   }
 
   // Create route leg between two stops on a specific route
@@ -846,7 +846,7 @@ export class RoutePlanner {
       fromStop,
       toStop,
       stops,
-      estimatedTime: this.calculateRouteTimeForStops(stops),
+      estimatedTime: this.calculateRouteTimeForStops(stops, route),
       distance: this.calculateRouteDistanceForStops(stops)
     };
   }
@@ -1201,9 +1201,9 @@ export class RoutePlanner {
 }
 
   // Calculate travel time between two stops
-  private calculateTravelTime(): number {
-    // Base time: 2.5 minutes per stop + distance factor
-    const baseTime = 2.5;
+  private calculateTravelTime(route?: BusRoute): number {
+    // Base time: 2.5 minutes per stop for regular routes, 1.5 minutes for Laguna routes
+    const baseTime = route && route.number.startsWith('Leguna') ? 1.5 : 2.5;
     const distance = this.calculateDistance();
     return Math.round(baseTime + (distance * 1.5)); // 1.5 min per km
   }
@@ -1215,10 +1215,10 @@ export class RoutePlanner {
   }
 
   // Calculate total time for a route
-  private calculateRouteTime(stops: BusStop[]): number {
+  private calculateRouteTime(stops: BusStop[], route?: BusRoute): number {
     let totalTime = 0;
     for (let i = 0; i < stops.length - 1; i++) {
-      totalTime += this.calculateTravelTime();
+      totalTime += this.calculateTravelTime(route);
     }
     return totalTime;
   }
@@ -1233,8 +1233,8 @@ export class RoutePlanner {
   }
 
   // Calculate total time for a route (alias for consistency)
-  private calculateRouteTimeForStops(stops: BusStop[]): number {
-    return this.calculateRouteTime(stops);
+  private calculateRouteTimeForStops(stops: BusStop[], route?: BusRoute): number {
+    return this.calculateRouteTime(stops, route);
   }
 
   // Calculate total distance for a route (alias for consistency)

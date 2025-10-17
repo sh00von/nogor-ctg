@@ -1,3 +1,18 @@
+/**
+ * Bus Routes Data and Utilities
+ * 
+ * This module contains all bus route data for the Chittagong bus tracking system,
+ * including regular bus routes and Leguna service routes (city circular routes).
+ * It provides fast lookup functions and utilities for route planning.
+ */
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+/**
+ * Represents a bus stop with optional coordinates
+ */
 export interface BusStop {
   id: number;
   name: string;
@@ -7,6 +22,9 @@ export interface BusStop {
   };
 }
 
+/**
+ * Represents a complete bus route with all stops and metadata
+ */
 export interface BusRoute {
   id: number;
   name: string;
@@ -19,7 +37,9 @@ export interface BusRoute {
   totalStops: number;
 }
 
-// Fast lookup maps for O(1) searching
+/**
+ * Fast lookup index for O(1) route and stop searches
+ */
 export interface RouteIndex {
   stopToRoutes: Map<number, number[]>; // stopId -> routeIds[]
   routeToStops: Map<number, number[]>; // routeId -> stopIds[]
@@ -27,6 +47,14 @@ export interface RouteIndex {
   routeNames: Map<number, string>; // routeId -> routeName
 }
 
+// ============================================================================
+// ROUTE DATA
+// ============================================================================
+
+/**
+ * Regular Bus Routes (Main city routes)
+ * Routes 1-11 covering major areas of Chittagong
+ */
 export const busRoutes: BusRoute[] = [
   {
     id: 1,
@@ -301,29 +329,32 @@ export const busRoutes: BusRoute[] = [
   }
 ];
 
-// Laguna Service Routes (City Circular Routes)
-export const lagunaRoutes: BusRoute[] = [
+/**
+ * Leguna Service Routes (City Circular Routes)
+ * Short-distance routes for local transportation within city areas
+ */
+export const legunaRoutes: BusRoute[] = [
   {
     id: 12,
-    name: "Laguna Service 1",
-    number: "Laguna -1",
+    name: "Leguna Service 1",
+    number: "Leguna -1",
     color: "#8B5CF6",
-    description: "Oxygen to 2no Gate via Bayezid, Rubi Gate, Shershah Colony (City Circular Route)",
+    description: "Oxygen to 2no Gate (City Circular Route)",
     firstStop: 27,
     lastStop: 20,
     totalStops: 5,
     stops: [
       { id: 27, name: "Oxygen" },
       { id: 67, name: "Bayezid" },
-      { id: 65, name: "Rubi Gate" },
       { id: 66, name: "Shershah Colony" },
+      { id: 65, name: "Rubi Gate" },
       { id: 20, name: "2no Gate" }
     ]
   },
   {
     id: 13,
-    name: "Laguna Service 2",
-    number: "Laguna-2",
+    name: "Leguna Service 2",
+    number: "Leguna-2",
     color: "#8B5CF6",
     description: "2no Gate to Chawkbazar via Probortok Moor (City Circular Route)",
     firstStop: 20,
@@ -334,16 +365,62 @@ export const lagunaRoutes: BusRoute[] = [
       { id: 29, name: "Probortok Moor" },
       { id: 8, name: "Chawkbazar" }
     ]
+  },
+  {
+    id: 14,
+    name: "Leguna Service 3",
+    number: "Leguna-3",
+    color: "#8B5CF6",
+    description: "Bahaddarhat to WASA (City Circular Route)",
+    firstStop: 6,
+    lastStop: 64,
+    totalStops: 6,
+    stops: [
+      { id: 6, name: "Bahaddarhat" },
+      { id: 19, name: "Muradpur" },
+      { id: 20, name: "2no Gate" },
+      { id: 68, name: "GEC" },
+      { id: 78, name: "Dam Para" },
+      { id: 64, name: "WASA" }
+    ]
+  },
+  {
+    id: 15,
+    name: "Leguna Service 4",
+    number: "Leguna-4",
+    color: "#8B5CF6",
+    description: "Oxygen to Aman Bazar (City Circular Route)",
+    firstStop: 27,
+    lastStop: 79,
+    totalStops: 4,
+    stops: [
+      { id: 27, name: "Oxygen" },
+      { id: 26, name: "Baluchara" },
+      { id: 80, name: "Natun Para" },
+      { id: 79, name: "Aman Bazar" }
+    ]
   }
 ];
 
-// All Routes Combined (for backward compatibility)
-export const allRoutes: BusRoute[] = [...busRoutes, ...lagunaRoutes];
+/**
+ * All Routes Combined
+ * Contains both regular bus routes and Leguna service routes
+ */
+export const allRoutes: BusRoute[] = [...busRoutes, ...legunaRoutes];
 
-// Fast lookup maps for O(1) searching
+// ============================================================================
+// INDEX MANAGEMENT
+// ============================================================================
+
+/**
+ * Cached route index for fast lookups
+ */
 let routeIndex: RouteIndex | null = null;
 
-// Initialize fast lookup maps
+/**
+ * Initialize and cache the route index for O(1) lookups
+ * @returns The initialized route index
+ */
 function initializeRouteIndex(): RouteIndex {
   if (routeIndex) return routeIndex;
   
@@ -376,28 +453,59 @@ function initializeRouteIndex(): RouteIndex {
   return routeIndex;
 }
 
-// Fast lookup functions
+// ============================================================================
+// CORE LOOKUP FUNCTIONS
+// ============================================================================
+
+/**
+ * Get all route IDs that pass through a specific stop
+ * @param stopId - The stop ID to search for
+ * @returns Array of route IDs
+ */
 export const getRoutesByStopId = (stopId: number): number[] => {
   const index = initializeRouteIndex();
   return index.stopToRoutes.get(stopId) || [];
 };
 
+/**
+ * Get all stop IDs for a specific route
+ * @param routeId - The route ID to search for
+ * @returns Array of stop IDs
+ */
 export const getStopsByRouteId = (routeId: number): number[] => {
   const index = initializeRouteIndex();
   return index.routeToStops.get(routeId) || [];
 };
 
+/**
+ * Get the name of a stop by its ID
+ * @param stopId - The stop ID
+ * @returns Stop name or undefined if not found
+ */
 export const getStopName = (stopId: number): string | undefined => {
   const index = initializeRouteIndex();
   return index.stopNames.get(stopId);
 };
 
+/**
+ * Get the name of a route by its ID
+ * @param routeId - The route ID
+ * @returns Route name or undefined if not found
+ */
 export const getRouteName = (routeId: number): string | undefined => {
   const index = initializeRouteIndex();
   return index.routeNames.get(routeId);
 };
 
-// Fast stop search by name
+// ============================================================================
+// SEARCH FUNCTIONS
+// ============================================================================
+
+/**
+ * Find stops by name using fuzzy matching
+ * @param name - The name to search for
+ * @returns Array of matching BusStop objects
+ */
 export const findStopByName = (name: string): BusStop[] => {
   const searchTerm = name.toLowerCase().trim();
   const results: BusStop[] = [];
@@ -418,7 +526,11 @@ export const findStopByName = (name: string): BusStop[] => {
   return results;
 };
 
-// Fast route search by name or number
+/**
+ * Find routes by name or number using fuzzy matching
+ * @param name - The name or number to search for
+ * @returns Array of matching BusRoute objects
+ */
 export const findRouteByName = (name: string): BusRoute[] => {
   const searchTerm = name.toLowerCase().trim();
   return allRoutes.filter(route => 
@@ -427,21 +539,38 @@ export const findRouteByName = (name: string): BusRoute[] => {
   );
 };
 
-// Laguna-specific helper functions
-export const getLagunaRoutesByStopId = (stopId: number): BusRoute[] => {
-  return lagunaRoutes.filter(route => 
+// ============================================================================
+// ROUTE-SPECIFIC FUNCTIONS
+// ============================================================================
+
+/**
+ * Get all Leguna routes that pass through a specific stop
+ * @param stopId - The stop ID to search for
+ * @returns Array of Leguna BusRoute objects
+ */
+export const getLegunaRoutesByStopId = (stopId: number): BusRoute[] => {
+  return legunaRoutes.filter(route => 
     route.stops.some(stop => stop.id === stopId)
   );
 };
 
-export const getLagunaRouteById = (routeId: number): BusRoute | undefined => {
-  return lagunaRoutes.find(route => route.id === routeId);
+/**
+ * Get a specific Leguna route by its ID
+ * @param routeId - The route ID
+ * @returns Leguna BusRoute object or undefined if not found
+ */
+export const getLegunaRouteById = (routeId: number): BusRoute | undefined => {
+  return legunaRoutes.find(route => route.id === routeId);
 };
 
-export const getAllLagunaStops = (): BusStop[] => {
+/**
+ * Get all unique stops used by Leguna routes
+ * @returns Array of unique BusStop objects, sorted by name
+ */
+export const getAllLegunaStops = (): BusStop[] => {
   const stopMap = new Map<number, BusStop>();
   
-  for (const route of lagunaRoutes) {
+  for (const route of legunaRoutes) {
     for (const stop of route.stops) {
       stopMap.set(stop.id, stop);
     }
@@ -450,14 +579,31 @@ export const getAllLagunaStops = (): BusStop[] => {
   return Array.from(stopMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 };
 
+/**
+ * Get all regular bus routes (non-Leguna)
+ * @returns Array of regular BusRoute objects
+ */
 export const getRegularBusRoutes = (): BusRoute[] => {
   return busRoutes;
 };
 
-export const isLagunaRoute = (routeId: number): boolean => {
-  return lagunaRoutes.some(route => route.id === routeId);
+/**
+ * Check if a route is a Leguna service route
+ * @param routeId - The route ID to check
+ * @returns True if the route is a Leguna service route
+ */
+export const isLegunaRoute = (routeId: number): boolean => {
+  return legunaRoutes.some(route => route.id === routeId);
 };
 
+// ============================================================================
+// GENERAL UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Get all unique stops from all routes
+ * @returns Array of unique BusStop objects, sorted by name
+ */
 export const getAllStops = (): BusStop[] => {
   const stopMap = new Map<number, BusStop>();
   
@@ -470,23 +616,48 @@ export const getAllStops = (): BusStop[] => {
   return Array.from(stopMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 };
 
+/**
+ * Get all stop names from all routes
+ * @returns Array of stop names, sorted alphabetically
+ */
 export const getAllStopNames = (): string[] => {
   return getAllStops().map(stop => stop.name);
 };
 
+/**
+ * Get all route names from all routes
+ * @returns Array of route names
+ */
 export const getAllRouteNames = (): string[] => {
   return allRoutes.map(route => route.name);
 };
 
+/**
+ * Get a specific route by its ID
+ * @param routeId - The route ID
+ * @returns BusRoute object or undefined if not found
+ */
 export const getRouteById = (routeId: number): BusRoute | undefined => {
   return allRoutes.find(route => route.id === routeId);
 };
 
+/**
+ * Get all routes (regular and Leguna)
+ * @returns Array of all BusRoute objects
+ */
 export const getAllRoutes = (): BusRoute[] => {
   return allRoutes;
 };
 
-// Get route pattern (first to last stop)
+// ============================================================================
+// ROUTE ANALYSIS FUNCTIONS
+// ============================================================================
+
+/**
+ * Get the route pattern (first and last stops) for a route
+ * @param routeId - The route ID
+ * @returns Object with firstStop and lastStop, or null if route not found
+ */
 export const getRoutePattern = (routeId: number): { firstStop: BusStop; lastStop: BusStop } | null => {
   const route = getRouteById(routeId);
   if (!route || route.stops.length === 0) return null;
@@ -497,7 +668,12 @@ export const getRoutePattern = (routeId: number): { firstStop: BusStop; lastStop
   };
 };
 
-// Get all intersection points between routes
+/**
+ * Get all intersection points (common stops) between two routes
+ * @param routeId1 - First route ID
+ * @param routeId2 - Second route ID
+ * @returns Array of BusStop objects that are common to both routes
+ */
 export const getIntersectionPoints = (routeId1: number, routeId2: number): BusStop[] => {
   const route1 = getRouteById(routeId1);
   const route2 = getRouteById(routeId2);
